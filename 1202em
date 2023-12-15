@@ -1,0 +1,147 @@
+
+#include <Arduino.h>
+#include <M5Core2.h>
+#include <Wire.h>
+#include <Adafruit_Sensor.h>
+#include <Adafruit_BNO055.h>
+#include <utility/imumaths.h>
+#include <Adafruit_I2CDevice.h>
+#include <Adafruit_BusIO_Register.h>
+
+#define Kp      2
+#define Ki      120
+#define Kd      1
+#define target  2.5
+
+const int STBY = 3;     // モータードライバの制御の準備
+const int AIN1 = 4;     // 1つ目のDCモーターの制御
+const int AIN2 = 5;     // 1つ目のDCモーターの制御
+const int BIN1 = 6;     // 2つ目のDCモーターの制御
+const int BIN2 = 7;     // 2つ目のDCモーターの制御
+const int PWMA = 9;     // 1つ目のDCモーターの回転速度
+const int PWMB = 10;    // 2つ目のDCモーターの回転速度
+
+#define ACCL_ADDR 0x19
+#define ACCL_R_ADDR 0x02
+#define GYRO_ADDR 0x69
+#define GYRO_R_ADDR 0x02
+#define MAG_ADDR 0x13
+#define MAG_R_ADDR 0x42
+
+void setup(void)
+{
+  //Wire.begin(32, 33);
+  Serial.begin(9600);
+  delay(1000);
+
+    //dcモーター関連
+    pinMode(STBY, OUTPUT);
+    pinMode(AIN1, OUTPUT);
+    pinMode(AIN2, OUTPUT);
+    pinMode(BIN1, OUTPUT);
+    pinMode(BIN2, OUTPUT);
+    digitalWrite(STBY, HIGH); // モータードライバ制御準備
+    pinMode(PWMA, OUTPUT);
+    pinMode(PWMB, OUTPUT);
+}
+int loop() {
+    MotorControl motorControl;
+    SensorControl sensorControl;
+
+    sensorControl.motaSetup(); // Call the setup function
+
+    while (true) {
+        motorControl.moveForward(1); // Move forward for 1 second (adjust duration as needed)
+        motorControl.stack(); // Call the stack function
+        // Add more control logic as needed
+    }
+
+    return 0;
+}
+
+//左右の回転速度を0基準に設定(v∈[-255,255])
+void MoterControl( int left,int right) {
+    int absleft = abs(left);
+    int absright = abs(right);
+
+    if(left > 0 && right > 0){
+        digitalWrite(AIN1, HIGH);
+        digitalWrite(AIN2, LOW);
+        digitalWrite(BIN1, HIGH);
+        digitalWrite(BIN2, LOW);
+        analogWrite(PWMA, absleft);
+        analogWrite(PWMB, absright);
+    }
+    else if(left > 0 && right < 0){
+        digitalWrite(AIN1, HIGH);
+        digitalWrite(AIN2, LOW);
+        digitalWrite(BIN1, LOW);
+        digitalWrite(BIN2, HIGH);
+        analogWrite(PWMA, absleft);
+        analogWrite(PWMB, absright);
+    }
+    else if(left < 0 && right > 0){
+        digitalWrite(AIN1, LOW);
+        digitalWrite(AIN2, HIGH);
+        digitalWrite(BIN1, HIGH);
+        digitalWrite(BIN2, LOW);
+        analogWrite(PWMA, absleft);
+        analogWrite(PWMB, absright);
+    }
+    else{
+        digitalWrite(AIN1, LOW);
+        digitalWrite(AIN2, HIGH);
+        digitalWrite(BIN1, LOW);
+        digitalWrite(BIN2, HIGH);
+        analogWrite(PWMA, absleft);
+        analogWrite(PWMB, absright);
+    }
+}
+
+
+    void stack() {
+        while (true) {
+            // Implement stack condition
+            // Example: acc = acc_value();
+            // if (acc[2] < 0) {
+            //    ...
+            // }
+            break; // Exiting loop, replace with actual stack condition
+        }
+    }
+
+    // Add more functions as needed
+};
+
+class SensorControl {
+private:
+    int i2c;
+
+public:
+    SensorControl() {
+        i2c = wiringPiI2CSetup(1); // Check the correct I2C channel
+    }
+
+    void motaSetup() {
+        // GPIO setup for motors
+        // Implement if necessary
+    }
+
+    double acc_value() {
+        int acc_x = wiringPiI2CReadReg16(i2c, ACCL_ADDR);
+        return acc_x / 16384.0; // Check if the conversion is correct
+    }
+
+    double gyro_value() {
+        int gyro_x = wiringPiI2CReadReg16(i2c, GYRO_ADDR);
+        return gyro_x / 131.0; // Check if the conversion is correct
+    }
+
+    double mag_value() {
+        int mag_x = wiringPiI2CReadReg16(i2c, MAG_ADDR);
+        return mag_x; // Check if the conversion is correct
+    }
+
+    // Add more functions as needed
+};
+
