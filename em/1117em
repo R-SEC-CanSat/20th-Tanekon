@@ -1,0 +1,107 @@
+/*
+  Hardware connections:
+  
+*/
+
+#include <Arduino.h>
+#include <M5Core2.h>
+#include <Wire.h>
+#include <Adafruit_Sensor.h>
+#include <Adafruit_BNO055.h>
+#include <utility/imumaths.h>
+#include <Adafruit_I2CDevice.h>
+#include <Adafruit_BusIO_Register.h>
+#include <SPI.h>
+
+#include "SparkFunBME280.h"
+BME280 mySensor;
+#include <Arduino.h>
+#include <M5Stack.h>
+
+
+//PIN設定
+const int PIN_MOTOR_RH = 2;
+const int PIN_MOTOR_LH = 5;
+//I2C_connection
+const int PIN_BNO1 = 32;
+const int PIN_BNO2 = 33;
+
+const int PIN_BUTTON_B = 38;
+const int PIN_BUTTON_C = 37;
+
+//PWMの設定
+const double PWM_FREQ = 50;  // PWMの周波数
+const uint8_t PWM_BITS = 16; // PWMの分解能
+
+// プロトタイプ宣言
+void goStraight();
+void turnRight();
+void turnLeft();
+void stop();
+
+// パラメータ
+int param_cw = 5243;   // 正回転 (パルス幅1600usecねらい)
+int param_ccw = 4587;  // 逆回転 (パルス幅1400usecねらい)
+int param_stop = 4915; // 停止 (パルス幅1500usecねらい)
+
+//各素子準備
+void setup()
+{
+  Serial.begin(9600);
+  Serial.println("Reading basic values from BME280");
+
+  if (mySensor.beginSPI(19) == false) //Begin communication over SPI. Use pin 2 as CS.
+  {
+    Serial.println("The sensor did not respond. Please check wiring.");
+    while(1); //Freeze
+  }
+}
+
+void loop()
+{
+  housyutu();
+  M5.Lcd.printf("housyutu\n");
+  tyakuti();
+  kyaribure();
+
+  exit()
+}
+
+
+void kyaribure()
+{
+  M5.Lcd.clear();
+  M5.Lcd.setCursor(0, 20);
+  M5.Lcd.printf("Go straight\n");
+  ledcWrite(1, param_cw);
+  ledcWrite(2, param_ccw);
+}
+
+void turnRight()
+{
+  M5.Lcd.clear();
+  M5.Lcd.setCursor(0, 20);
+  M5.Lcd.printf("Turn right\n");
+  ledcWrite(1, param_stop);
+  ledcWrite(2, param_ccw);
+}
+
+void turnLeft()
+{
+  M5.Lcd.clear();
+  M5.Lcd.setCursor(0, 20);
+  M5.Lcd.printf("Turn left\n");
+  ledcWrite(1, param_cw);
+  ledcWrite(2, param_stop);
+}
+
+void stop()
+{
+  M5.Lcd.clear();
+  M5.Lcd.setCursor(0, 20);
+  M5.Lcd.printf("Stop\n");
+  ledcWrite(1, param_stop);
+  ledcWrite(2, param_stop);
+}
+
+
