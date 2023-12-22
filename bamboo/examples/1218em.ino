@@ -19,7 +19,7 @@ double goalGPSdata[2];
 goalGPSdata[0] = 35.717147;
 goalGPSdata[1] = 139.823209;
 
-#define Kp      0.5
+#define Kp      2
 #define Ki      120
 #define Kd      1
 #define target  2.5
@@ -73,8 +73,7 @@ void setup(void)
     delay(1000);
 }
 void loop() {
-    delay(2000);
-    P_GPS_Moter();
+    
 }
 
 
@@ -116,38 +115,11 @@ void MoterControl( int left,int right) {
         analogWrite(PWMB, absright);
     }
 }
-//GPSとオイラー角から右回転を正として回転量を出す
-void P_GPS_Moter(){
-    Serial.println("P_GPS_Moter");
-    while(TRUE){
-    GetAzimuthDistance();
-    int PID = azidata[0];
-    MoterControl(PID,PID);
-    delay(250);
-    }
-} 
-
 void GetAzimuthDistance(){
     GPS();
     Euler();
-    //回転の程度をとりあえず整えてみる(turnpower∈[-180,180])
-    double turnpower;
-    turnpower = currentGPSdata[2] - eulerdata[2];
-    if (turnpower > 180 && turnpower < 360){
-        turnpower = turnpower - 360;
-    }
-    else if(turnpower < -180 && turnpower > -360){
-        turnpower = turnpower + 360;
-    }
-    else if(turnpower < 0 && turnpower > -180){
-        turnpower = turnpower;
-    }
-    else{
-        turnpower = turnpower;
-    }
-    Serial.println(turnpower);
     double azidata[2];
-    double azidata[0] =  Kp * turnpower;
+    double azidata[0] =  currentGPSdata[2] - eulerdata[2];
     double azidata[1] = sqrt(pow(goalGPSdata[0] - currentGPSdata[0], 2) + pow(goalGPSdata[1] - currentGPSdata[1], 2));
 
 }
@@ -165,14 +137,10 @@ void GPS(){
     long longitude_mdeg = nmea.getLongitude();
     double latitude_deg = latitude_mdeg / 1000000.0;
     double longitude_deg = longitude_mdeg / 1000000.0;
-    double goaldirection = 57.2957795131 * atan2(goalGPSdata[0] - latitude_deg, goalGPSdata[1] - longitude_deg);//ラジアンで出てる  
-    //北を0度とした0~360の値に変換
-    if(goaldirection > 90 && goaldirection < 180){
-        goaldirection = 450 - goaldirection;
-    }
-    else{
-        goaldirection = 90 - goaldirection;
-    }
+    double goaldirection = 90 - atan2(goalGPSdata[0] - latitude_deg, goalGPSdata[1] - longitude_deg);//ラジアンで出てる  
+    //ラジアンから度に変換
+    goaldirection *= 57.2957795131;
+
     currentGPSdata[0] = latitude_deg;
     currentGPSdata[1] = longitude_deg;
     currentGPSdata[2] = goaldirection;
