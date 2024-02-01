@@ -1,76 +1,146 @@
-#include <M5Core2.h>
 
+#include <M5StickC.h>
+#include <math.h>
 
-SemaphoreHandle_t xMutex = NULL;
+HardwareSerial VSerial(1);
+TFT_eSprite tft = TFT_eSprite(&M5.Lcd);
 
-void sendData(void *args) {
-  Serial.println("Thread1 Start");
-  BaseType_t xStatus;
-  const TickType_t xTicksToWait = 1000UL;
-  xSemaphoreGive(xMutex);
+uint8_t I2CWrite1Byte(uint8_t Addr, uint8_t Data)
+{
+    Wire.beginTransmission(0x38);
+    Wire.write(Addr);
+    Wire.write(Data);
+    return Wire.endTransmission();
+}
 
-  uint32_t num = 1;
-  for(;;) {
-    xStatus = xSemaphoreTake(xMutex, xTicksToWait);
-    if (xStatus == pdTRUE) {
-      Serial2.printf("Core2 Send:%d\n", num);
-      M5.Lcd.fillRect(0, 50, 240, 20, TFT_BLACK);
-      M5.Lcd.setCursor(0, 50);
-      M5.Lcd.printf("Core2 Send:%d\n", num);
-      Serial.printf("Core2 Send:%d\n", num);
-      num = num + 1;
+uint8_t I2CWritebuff(uint8_t Addr, uint8_t *Data, uint16_t Length)
+{
+    Wire.beginTransmission(0x38);
+    Wire.write(Addr);
+    for (int i = 0; i < Length; i++)
+    {
+        Wire.write(Data[i]);
     }
-    xSemaphoreGive(xMutex);
-    vTaskDelay(500);
-  }
+    return Wire.endTransmission();
 }
 
-void recvData(void *args) {
-  Serial.println("Thread2 Start");
-  BaseType_t xStatus;
-  const TickType_t xTicksToWait = 1000UL;
-  xSemaphoreGive(xMutex);
-  for(;;) {
-    xStatus = xSemaphoreTake(xMutex, xTicksToWait);
-    if (xStatus == pdTRUE) {
-      while (Serial2.available()) {
-        String recv_str = Serial2.readStringUntil('\n');
-        Serial.println(recv_str);
-        M5.Lcd.setCursor(0, 120);
-        M5.Lcd.printf("Recv:\n");
-        M5.Lcd.fillRect(0, 135, 240, 20, TFT_BLACK);
-        M5.Lcd.setCursor(0, 135);
-        M5.Lcd.print(recv_str);
+uint8_t Setspeed(int16_t Vtx, int16_t Vty, int16_t Wt)
+{
+    int16_t speed_buff[4] = {0};
+    int8_t speed_sendbuff[4] = {0};
 
-      }
+    Wt = (Wt > 100) ? 100 : Wt;
+    Wt = (Wt < -100) ? -100 : Wt;
+
+    Vtx = (Vtx > 100) ? 100 : Vtx;
+    Vtx = (Vtx < -100) ? -100 : Vtx;
+    Vty = (Vty > 100) ? 100 : Vty;
+    Vty = (Vty < -100) ? -100 : Vty;
+
+    Vtx = (Wt != 0) ? Vtx * (100 - abs(Wt)) / 100 : Vtx;
+    Vty = (Wt != 0) ? Vty * (100 - abs(Wt)) / 100 : Vty;
+
+    speed_buff[0] = Vty - Vtx - Wt;
+    speed_buff[1] = Vty + Vtx + Wt;
+    speed_buff[3] = Vty - Vtx + Wt;
+    speed_buff[2] = Vty + Vtx - Wt;
+
+    for (int i = 0; i < 4; i++)
+    {
+        speed_buff[i] = (speed_buff[i] > 100) ? 100 : speed_buff[i];
+        speed_buff[i] = (speed_buff[i] < -100) ? -100 : speed_buff[i];
+        speed_sendbuff[i] = speed_buff[i];
     }
-    xSemaphoreGive(xMutex);
-    vTaskDelay(33);
-  }
+    return I2CWritebuff(0x00, (uint8_t *)speed_sendbuff, 4);
 }
 
+void setup()
+{
+    M5.begin();
+    M5.Lcd.setRotation(0);
+    M5.Lcd.fillScreen(0);
 
-void setup() {
-  M5.begin(true, true, true, false);
-  M5.Lcd.setTextSize(2);
-  M5.Lcd.setTextColor(M5.Lcd.color565(255, 255, 255));
-  Serial2.begin(57600, SERIAL_8N1, 32, 33); 
-  delay(1000);
-  Serial.println("-- HELLO (baud rate = 57600)");
-  M5.Lcd.println("UART Monitor");
-  delay(2000);
+    tft.setColorDepth(8);
+    tft.createSprite(80, 160);
+    tft.setTextDatum(TC_DATUM);
+    tft.setTextColor(WHITE);
+    tft.setTextSize(2);
 
-  M5.Lcd.setCursor(0, 0);
-  M5.Lcd.println("UART Monitor");
+    VSerial.begin(115200, SERIAL_8N1, 33, 32);
+    Wire.begin(0, 26);
 
-  xMutex = xSemaphoreCreateMutex();
-  if (xMutex != NULL) {
-    xTaskCreateUniversal( sendData,"task1", 2048, NULL, 5, NULL, 1);
-    xTaskCreateUniversal( recvData,"task2", 8192, NULL, 6, NULL, tskNO_AFFINITY);
-  }
-  
+    Setspeed(0, 0, 0);
+
+    VSerial.write(0xAF);
+    tft.fillSprite(TFT_ORANGE);
+    tft.pushSprite(0,0);
 }
 
-void loop() {
-  vTaskDelay(1);
+int16_t ux;
+unsigned long T;
+#define BASE_SPEED  20
+bool last_dir = false;
+void loop()
+{
+    M5.update();
+    if(M5.BtnA.wasReleased())
+    {
+        Setspeed(0, 0, 0);
+        ESP.restart();
+    }
+
+    if(VSerial.available())
+    {
+        VSerial.write(0xAF);
+
+        uint8_t b_data[4];
+        VSerial.readBytes(b_data, 4);
+
+        int8_t ux = b_data[0];
+        
+        uint32_t area = b_data[1] << 16 | b_data[2] << 8 | b_data[3];
+        int8_t uy;
+        Serial.printf("%d, %d\n", ux, area);
+        if(area < 500)
+        {
+            if(last_dir)
+                Setspeed(0, 0, 15);
+            else
+                Setspeed(0, 0, -15);
+            tft.fillSprite(TFT_RED);
+            tft.pushSprite(0,0);
+            return;
+        }
+        else
+        {
+            tft.fillSprite(TFT_GREEN);
+            tft.pushSprite(0,0);
+            if (area < 20000)
+            {
+                uy = 1 / (0.00001 * area) + 15;
+                if(uy > 40)
+                    uy = 40;
+                if(uy < 5)
+                    uy = 5;
+                Setspeed(ux, uy, 0);
+            }
+            else if (area > 24000)
+            {
+                Setspeed(ux, -10, 0);
+            }
+            else
+            {
+                Setspeed(ux, 0, 0);
+            }
+        }
+
+        if(ux > 0)
+        {
+            last_dir = true;
+        }
+        else
+        {
+            last_dir = false;
+        }
+    }
 }
