@@ -31,8 +31,8 @@ void loop() {
     // 右回り（左回りは逆）
     digitalWrite(AIN1, LOW);
     digitalWrite(AIN2, HIGH);
-    digitalWrite(BIN1, HIGH);
-    digitalWrite(BIN2, LOW);
+    digitalWrite(BIN1, LOW);
+    digitalWrite(BIN2, HIGH);
     Serial.println("P_GPS_Moter");
     delay(1000);
     // 回転速度を設定（0～255）まで

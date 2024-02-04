@@ -45,6 +45,9 @@ while(True):
         max_blob = max(blobs, key=lambda b: b.area()) # 面積が最大の領域を取得
         img.draw_rectangle(max_blob[0:4])             # 検出した色を矩形で囲む
         img.draw_cross(max_blob[5], max_blob[6])# 検出した色の中心に十字を描く
-        uart.write(max_blob[5], max_blob[6])
+        uart.write(str(max_blob[5]))
+        uart.write(",")
+        uart.write(str(max_blob[6]))
+
         print(max_blob[5], max_blob[6])
 
