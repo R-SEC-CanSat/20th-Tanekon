@@ -32,10 +32,10 @@ void camera_value(){
     if (val == '\n'){
       Serial.println(buff);
       //文字列を整数リストに変換
-  split(buff);
-  Serial.print(camera_data[0]);
-  Serial.print(",");
-  Serial.println(camera_data[1]);
+      split(buff);
+      Serial.print(camera_data[0]);
+      Serial.print(",");
+      Serial.println(camera_data[1]);
       counter = 0;
       pre_camera_data[0] = "";
       pre_camera_data[1] = "";
