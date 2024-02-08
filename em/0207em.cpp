@@ -1,14 +1,14 @@
-
-#include <Arduino.h>
+//#include <M5Core2.h>
+//標準ライブラリ
 #include <Wire.h>
+#include <SPI.h>
 #include <SoftwareSerial.h>
+//それ以外のライブラリ
 #include <Adafruit_Sensor.h>
 #include <Adafruit_BNO055.h>
 #include <utility/imumaths.h>
 #include <Adafruit_I2CDevice.h>
 #include <Adafruit_BusIO_Register.h>
-#include <SparkFun_u-blox_GNSS_Arduino_Library.h> //Click here to get the library: http://librarymanager/All#SparkFun_u-blox_GNSS
-SFE_UBLOX_GNSS myGNSS;
 #include <MicroNMEA.h> //http://librarymanager/All#MicroNMEA
 char nmeaBuffer[100];
 MicroNMEA nmea(nmeaBuffer, sizeof(nmeaBuffer));
@@ -26,9 +26,6 @@ int camera_data[2];
 
 //PID制御のための定数
 #define Kp      0.5
-#define Ki      120
-#define Kd      1
-#define target  2.5
 const int STBY = 2;     // モータードライバの制御の準備
 const int AIN1 = 3;     // 1つ目のDCモーターの制御
 const int AIN2 = 4;     // 1つ目のDCモーターの制御
@@ -89,8 +86,6 @@ void GPS(){
     goalGPSdata[1] = 139.823209;
     */
     
-    myGNSS.checkUblox();//初期化
-
     long latitude_mdeg = nmea.getLatitude();//小数点以下6桁を小数点無しで出してるのでしてるので注意
     long longitude_mdeg = nmea.getLongitude();
     double latitude_deg = latitude_mdeg / 1000000.0;
@@ -173,12 +168,16 @@ void P_GPS_Moter(){
     Serial.println("P_GPS_Moter");
     while(true){
     GetAzimuthDistance();
-    int PID = azidata[0];
-    MoterControl(PID,PID);
-    delay(250);
-    }
-} 
-
+    if(azidata[1] < 5){
+        break;
+        }
+    else{
+        int PID = azidata[0];
+        MoterControl(PID,PID);
+        delay(250);
+        }
+    } 
+}
 
 void split(String data){
     int index = 0; 
@@ -197,7 +196,7 @@ void split(String data){
     }
     
 }
-void camera_Moter(){
+void P_camera_Moter(){
   char buff[255];
   int counter = 0;
   while(mySerial.available()>0){
@@ -211,6 +210,8 @@ void camera_Moter(){
         Serial.print(camera_data[0]);
         Serial.print(",");
         Serial.println(camera_data[1]);
+        int PID2 = abs(camera_data[0]-160);
+        MoterControl(PID2,PID2);
         counter = 0;
         pre_camera_data[0] = "";
         pre_camera_data[1] = "";
@@ -236,19 +237,6 @@ void setup(void)
     pinMode(PWMA, OUTPUT);
     pinMode(PWMB, OUTPUT);
 
-    //GPSモジュール関連
-    if (!myGNSS.begin())
-    {
-        Serial.println(F("u-blox GNSS not detected at default I2C address. Please check wiring. Freezing."));
-        while (1);
-    }
-    myGNSS.setI2COutput(COM_TYPE_UBX | COM_TYPE_NMEA); //Set the I2C port to output both NMEA and UBX messages
-    myGNSS.saveConfigSelective(VAL_CFG_SUBSEC_IOPORT);
-    myGNSS.setProcessNMEAMask(SFE_UBLOX_FILTER_NMEA_GGA);//GGA以外は通さない
-    myGNSS.setHighPrecisionMode(true);//高精度モードらしい
-    //This will pipe all NMEA sentences to the serial port so we can see them
-    //myGNSS.setNMEAOutputPort(Serial);
-
     //BNO055関連
     if (!bno.begin())
     {
@@ -261,5 +249,5 @@ void setup(void)
 void loop() {
     delay(2000);
     P_GPS_Moter();
-    
+    P_camera_Moter();
 }

@@ -26,9 +26,6 @@ int camera_data[2];
 
 //PID制御のための定数
 #define Kp      0.5
-#define Ki      120
-#define Kd      1
-#define target  2.5
 const int STBY = 2;     // モータードライバの制御の準備
 const int AIN1 = 3;     // 1つ目のDCモーターの制御
 const int AIN2 = 4;     // 1つ目のDCモーターの制御
@@ -171,12 +168,16 @@ void P_GPS_Moter(){
     Serial.println("P_GPS_Moter");
     while(true){
     GetAzimuthDistance();
-    int PID = azidata[0];
-    MoterControl(PID,PID);
-    delay(250);
-    }
-} 
-
+    if(azidata[1] < 5){
+        break;
+        }
+    else{
+        int PID = azidata[0];
+        MoterControl(PID,PID);
+        delay(250);
+        }
+    } 
+}
 
 void split(String data){
     int index = 0; 
@@ -247,6 +248,7 @@ void setup(void)
 }
 void loop() {
     delay(2000);
+    if
     P_GPS_Moter();
     P_camera_Moter();
 }
