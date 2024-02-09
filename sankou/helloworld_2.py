@@ -43,11 +43,12 @@ while(True):
     blobs = img.find_blobs(threshold) # しきい値内の色を検出
     if blobs:
         max_blob = max(blobs, key=lambda b: b.area()) # 面積が最大の領域を取得
+        max_per = max_blob.area()/76800
         img.draw_rectangle(max_blob[0:4])             # 検出した色を矩形で囲む
         img.draw_cross(max_blob[5], max_blob[6])# 検出した色の中心に十字を描く
-        sendstr = str(max_blob[5])+","+str(max_blob[6])
+        sendstr = str(max_blob[5])+","+str(max_blob[6])+","+str(max_per)
         for char in sendstr:
             uart.write(char)
         uart.write("\n")
-        print(max_blob[5], max_blob[6])
+        print(max_blob[5], max_blob[6],max_per)
 
