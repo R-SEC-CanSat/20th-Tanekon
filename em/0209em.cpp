@@ -22,7 +22,7 @@ double goalGPSdata2[2] = {35.717147,139.823209};
 //カメラの値を受け取るためのシリアル通信
 SoftwareSerial mySerial(9, 10);    // RX,TXの割り当て
 String pre_camera_data[2];
-int camera_data[2];
+int camera_data[3];
 
 //PID制御のための定数
 #define Kp 1
@@ -33,11 +33,28 @@ const int BIN1 = 7;     // 2つ目のDCモーターの制御
 const int BIN2 = 8;     // 2つ目のDCモーターの制御
 const int PWMA = 5;     // 1つ目のDCモーターの回転速度
 const int PWMB = 6;    // 2つ目のDCモーターの回転速度
+const int fusePin = 9;
 double currentGPSdata[3];
 double eulerdata[3];
 double azidata[2];
 
+void housyutu(){
+    Serial.println("housyutu");
+    Euler();
+    Serial.println(eulerdata[1]);
+    while (1)
+    {if (eulerdata[1] <= 70) {
+        digitalWrite(fusePin, HIGH); // 溶断回路を通電
+        delay(1000);
+        digitalWrite(fusePin, LOW); // 
+        break;
+        }
+    else{
+        delay(1000);
+        }
+    }
 
+}
 //左右の回転速度を0基準に設定(v∈[-255,255])
 void MoterControl( int left,int right) {
     int absleft = abs(left);
@@ -90,7 +107,7 @@ void GPS(){
     long longitude_mdeg = nmea.getLongitude();
     double latitude_deg = latitude_mdeg / 1000000.0;
     double longitude_deg = longitude_mdeg / 1000000.0;
-    double goaldirection = 57.2957795131 * atan2(goalGPSdata[0] - latitude_deg, goalGPSdata[1] - longitude_deg);//ラジアンで出てる  
+    double goaldirection = 57.2957795131 * atan2(goalGPSdata2[0] - latitude_deg, goalGPSdata2[1] - longitude_deg);//ラジアンで出てる  
     //北を0度とした0~360の値に変換
     if(goaldirection > 90 && goaldirection < 180){
         goaldirection = 450 - goaldirection;
@@ -165,7 +182,7 @@ void GetAzimuthDistance(){
     Serial.println(turnpower);
     
     azidata[0] =  Kp * turnpower;
-    azidata[1] = sqrt(pow(goalGPSdata[0] - currentGPSdata[0], 2) + pow(goalGPSdata[1] - currentGPSdata[1], 2));
+    azidata[1] = sqrt(pow(goalGPSdata2[0] - currentGPSdata[0], 2) + pow(goalGPSdata2[1] - currentGPSdata[1], 2));
 
 }
 //GPSとオイラー角から右回転を正として回転量を出す
@@ -196,7 +213,7 @@ void split(String data){
         else{pre_camera_data[index] += tmp;}
     }
     //文字列リストを整数リストに変換
-    for(int i = 0; i < 2; i++){
+    for(int i = 0; i < 3; i++){
         camera_data[i] = pre_camera_data[i].toInt();
     }
     
@@ -212,6 +229,9 @@ void P_camera_Moter(){
         Serial.println(buff);
         //文字列を整数リストに変換
         split(buff);
+        if(camera_data[2]>70){
+            break;
+        }
         Serial.print(camera_data[0]);
         Serial.print(",");
         Serial.println(camera_data[1]);
@@ -244,6 +264,7 @@ void setup(void)
     digitalWrite(STBY, HIGH); // モータードライバ制御準備
     pinMode(PWMA, OUTPUT);
     pinMode(PWMB, OUTPUT);
+    pinMode(fusePin, OUTPUT);
 
     //BNO055関連
     if (!bno.begin())
@@ -256,6 +277,7 @@ void setup(void)
 }
 void loop() {
     delay(2000);
+    housyutu();
     P_GPS_Moter();
     P_camera_Moter();
 }
