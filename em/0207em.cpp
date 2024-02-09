@@ -25,7 +25,7 @@ String pre_camera_data[2];
 int camera_data[2];
 
 //PID制御のための定数
-#define Kp      0.5
+#define Kp 1
 const int STBY = 2;     // モータードライバの制御の準備
 const int AIN1 = 3;     // 1つ目のDCモーターの制御
 const int AIN2 = 4;     // 1つ目のDCモーターの制御
@@ -43,7 +43,7 @@ void MoterControl( int left,int right) {
     int absleft = abs(left);
     int absright = abs(right);
 
-    if(left > 0 && right > 0){
+    if(left >= 0 && right >= 0){
         digitalWrite(AIN1, HIGH);
         digitalWrite(AIN2, LOW);
         digitalWrite(BIN1, HIGH);
@@ -51,7 +51,7 @@ void MoterControl( int left,int right) {
         analogWrite(PWMA, absleft);
         analogWrite(PWMB, absright);
     }
-    else if(left > 0 && right < 0){
+    else if(left >= 0 && right < 0){
         digitalWrite(AIN1, HIGH);
         digitalWrite(AIN2, LOW);
         digitalWrite(BIN1, LOW);
@@ -59,7 +59,7 @@ void MoterControl( int left,int right) {
         analogWrite(PWMA, absleft);
         analogWrite(PWMB, absright);
     }
-    else if(left < 0 && right > 0){
+    else if(left < 0 && right >= 0){
         digitalWrite(AIN1, LOW);
         digitalWrite(AIN2, HIGH);
         digitalWrite(BIN1, HIGH);
@@ -157,6 +157,11 @@ void GetAzimuthDistance(){
     else{
         turnpower = turnpower;
     }
+    Serial.print("GPS Data : ");
+    Serial.print(currentGPSdata[2]);
+    Serial.print("\tEuler Data: ");
+    Serial.println(eulerdata[2]);
+    Serial.print("\tMoterControl : ");
     Serial.println(turnpower);
     
     azidata[0] =  Kp * turnpower;
@@ -211,6 +216,9 @@ void P_camera_Moter(){
         Serial.print(",");
         Serial.println(camera_data[1]);
         int PID2 = abs(camera_data[0]-160);
+        Serial.print("\tMoterControl: ");
+        Serial.println(PID2);
+
         MoterControl(PID2,PID2);
         counter = 0;
         pre_camera_data[0] = "";
