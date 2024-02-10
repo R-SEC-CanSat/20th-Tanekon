@@ -9,6 +9,8 @@
 #include <utility/imumaths.h>
 #include <Adafruit_I2CDevice.h>
 #include <Adafruit_BusIO_Register.h>
+#include "SparkFun_Ublox_Arduino_Library.h" //http://librarymanager/All#SparkFun_u-blox_GNSS
+SFE_UBLOX_GPS myGPS;
 #include <MicroNMEA.h> //http://librarymanager/All#MicroNMEA
 char nmeaBuffer[100];
 MicroNMEA nmea(nmeaBuffer, sizeof(nmeaBuffer));
