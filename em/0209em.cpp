@@ -183,6 +183,8 @@ void GetAzimuthDistance(){
     
     azidata[0] =  Kp * turnpower;
     azidata[1] = sqrt(pow(goalGPSdata2[0] - currentGPSdata[0], 2) + pow(goalGPSdata2[1] - currentGPSdata[1], 2));
+    Serial.print("\tDistance: ");
+    Serial.println(azidata[1]);
 
 }
 //GPSとオイラー角から右回転を正として回転量を出す
@@ -194,8 +196,9 @@ void P_GPS_Moter(){
         break;
         }
     else{
-        int PID = azidata[0];
-        MoterControl(PID,PID);
+        int PID_left = 0.7 * azidata[0] + 126;
+        int PID_right = - 0.7 * azidata[0] + 126;
+        MoterControl(PID_left, PID_right);
         delay(250);
         }
     } 
@@ -235,11 +238,12 @@ void P_camera_Moter(){
         Serial.print(camera_data[0]);
         Serial.print(",");
         Serial.println(camera_data[1]);
-        int PID2 = abs(camera_data[0]-160);
+        int PID2_left = 0.75 * (camera_data[0]-160) + 120;
+        int PID2_right = 0.75 * (160 - camera_data[0]) + 120;
         Serial.print("\tMoterControl: ");
         Serial.println(PID2);
 
-        MoterControl(PID2,PID2);
+        MoterControl(PID2_left,PID2_right);
         counter = 0;
         pre_camera_data[0] = "";
         pre_camera_data[1] = "";
