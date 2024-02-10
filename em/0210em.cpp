@@ -40,23 +40,6 @@ double currentGPSdata[3];
 double eulerdata[3];
 double azidata[2];
 
-void housyutu(){
-    Serial.println("housyutu");
-    Euler();
-    Serial.println(eulerdata[1]);
-    while (1)
-    {if (eulerdata[1] <= 70) {
-        digitalWrite(fusePin, HIGH); // 溶断回路を通電
-        delay(1000);
-        digitalWrite(fusePin, LOW); // 
-        break;
-        }
-    else{
-        delay(1000);
-        }
-    }
-
-}
 //左右の回転速度を0基準に設定(v∈[-255,255])
 void MoterControl( int left,int right) {
     int absleft = abs(left);
@@ -157,6 +140,24 @@ void Euler(){
     eulerdata[0] = roll;
     eulerdata[1] = pitch;
     eulerdata[2] = yaw;
+}
+
+void housyutu(){
+    Serial.println("housyutu");
+    Euler();
+    Serial.println(eulerdata[1]);
+    while (1)
+    {if (eulerdata[1] <= 70) {
+        digitalWrite(fusePin, HIGH); // 溶断回路を通電
+        delay(1000);
+        digitalWrite(fusePin, LOW); // 
+        break;
+        }
+    else{
+        delay(1000);
+        }
+    }
+
 }
 void GetAzimuthDistance(){
     GPS();
