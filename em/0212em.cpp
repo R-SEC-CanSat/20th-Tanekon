@@ -9,8 +9,6 @@
 #include <utility/imumaths.h>
 #include <Adafruit_I2CDevice.h>
 #include <Adafruit_BusIO_Register.h>
-#include "SparkFun_Ublox_Arduino_Library.h" //http://librarymanager/All#SparkFun_u-blox_GNSS
-SFE_UBLOX_GPS myGPS;
 #include <MicroNMEA.h> //http://librarymanager/All#MicroNMEA
 char nmeaBuffer[100];
 MicroNMEA nmea(nmeaBuffer, sizeof(nmeaBuffer));
@@ -45,6 +43,8 @@ double currentGPSdata[3];
 double eulerdata[3];
 double azidata[2];
 
+//I2C communication parameters
+#define DEFAULT_DEVICE_ADDRESS 0x42
 TwoWire& gps = Wire;
 
 //I2C read data structures
@@ -90,9 +90,6 @@ void MoterControl( int left,int right) {
     }
 }
 
-//MicroNMEA library structures
-char nmeaBuffer[100];
-MicroNMEA nmea(nmeaBuffer, sizeof(nmeaBuffer));
 
 volatile bool ppsTriggered = false;
 
@@ -137,7 +134,7 @@ void GPS(){
     char c ;
     if (idx == 0) {
         readI2C(buff);
-        delay(I2C_DELAY);
+        delay(1);
     }
     //Fetch the character one by one
     c = buff[idx];
@@ -366,7 +363,7 @@ void setup(void)
     do {
     if (idx == 0) {
         readI2C(buff);
-        delay(I2C_DELAY);
+        delay(1);
     }
     c = buff[idx];
     idx++;
