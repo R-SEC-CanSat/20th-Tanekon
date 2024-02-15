@@ -15,9 +15,9 @@ MicroNMEA nmea(nmeaBuffer, sizeof(nmeaBuffer));
 
 Adafruit_BNO055 bno = Adafruit_BNO055(55, 0x28, &Wire);//BNO055の設定
 //三鷹ファミマの緯度経度
-double goalGPSdata[2] = {35.700993, 139.566498};
+double goalGPSdata2[2] = {35.700993, 139.566498};
 //三鷹駅の緯度経度
-double goalGPSdata2[2] = {35.702797, 139.561109};
+double goalGPSdata[2] = {35.702797, 139.561109};
 //ゴールの緯度経度(作業場近くのセブン)
 double goalGPSdata3[2] = {35.717147,139.823209};
 
@@ -113,11 +113,10 @@ void gpsHardwareReset()
   delay(2000);
 
 }
-
 //Read 32 bytes from I2C
 void readI2C(char *inBuff)
 {
-  gps.requestFrom((uint8_t)DEFAULT_DEVICE_ADDRESS, (uint8_t) 32);
+  gps.requestFrom((uint8_t)0x42,  32);
   int i = 0;
   while (gps.available()) {
     inBuff[i] = gps.read();
@@ -145,6 +144,9 @@ void GPS(){
         Serial.print(c);
         nmea.process(c);
     }
+    if(pps_PIN == 1){
+        ppsHandler();
+        }
     }
     if (ppsTriggered) {
     ppsTriggered = false;
@@ -152,7 +154,7 @@ void GPS(){
     long longitude_mdeg = nmea.getLongitude();
     double latitude_deg = latitude_mdeg / 1000000.0;
     double longitude_deg = longitude_mdeg / 1000000.0;
-    double goaldirection = 57.2957795131 * atan2(goalGPSdata2[0] - latitude_deg, goalGPSdata2[1] - longitude_deg);//ラジアンで出てる  
+    double goaldirection = 57.2957795131 * atan2(goalGPSdata[0] - latitude_deg, goalGPSdata[1] - longitude_deg);//ラジアンで出てる  
     //北を0度とした0~360の値に変換
     if(goaldirection > 90 && goaldirection < 180){
         goaldirection = 450 - goaldirection;
@@ -247,7 +249,7 @@ void GetAzimuthDistance(){
     Serial.println(turnpower);
     
     azidata[0] =  Kp * turnpower;
-    azidata[1] = sqrt(pow(goalGPSdata2[0] - currentGPSdata[0], 2) + pow(goalGPSdata2[1] - currentGPSdata[1], 2));
+    azidata[1] = sqrt(pow(goalGPSdata[0] - currentGPSdata[0], 2) + pow(goalGPSdata[1] - currentGPSdata[1], 2));
     Serial.print("\tDistance: ");
     Serial.println(azidata[1]);
 
@@ -343,15 +345,14 @@ void setup(void)
         Serial.print("Ooops, no BNO055 detected ... Check your wiring or I2C ADDR!");
         while (1);
     }
+    pinMode(RESET_PIN, OUTPUT);
+  digitalWrite(RESET_PIN, HIGH);
+  Serial.println("Resetting GPS module ...");
+  gpsHardwareReset();
+  Serial.println("... done");
     delay(1000);
     //Start the module
-    pinMode(RESET_PIN, OUTPUT);
-    digitalWrite(RESET_PIN, HIGH);
-    Serial.println("Resetting GPS module ...");
-    gpsHardwareReset();
-    Serial.println("... done");
-
-    delay(1000);
+    
 
     //Reinitialize I2C after the reset
     gps.begin();
@@ -371,11 +372,9 @@ void setup(void)
     }
     while ((uint8_t) c != 0xFF);
 
-    pinMode(11, INPUT);
-    attachInterrupt(digitalPinToInterrupt(11), ppsHandler, RISING);
+    pinMode(pps_PIN, INPUT);
 }
 void loop() {
-    delay(2000);
     housyutu();
     P_GPS_Moter();
     P_camera_Moter();

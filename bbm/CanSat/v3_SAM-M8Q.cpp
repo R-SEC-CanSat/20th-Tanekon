@@ -5,22 +5,10 @@
 
 //I2C communication parameters
 #define DEFAULT_DEVICE_ADDRESS 0x42
-#define DEFAULT_DEVICE_PORT 0xFF//拾った情報を書き込む場所
 #define I2C_DELAY 1
 
 #define RESET_PIN 10
 
-#ifdef ARDUINO_SAM_DUE
-#define DEV_I2C Wire1
-#endif
-
-#ifdef ARDUINO_ARCH_STM32
-#define DEV_I2C Wire
-#endif
-
-#ifdef ARDUINO_ARCH_AVR
-#define DEV_I2C Wire
-#endif
 
 // Refer to Stream devices by use
 TwoWire& gps = Wire;
@@ -33,8 +21,6 @@ int idx = 0;
 char nmeaBuffer[100];
 MicroNMEA nmea(nmeaBuffer, sizeof(nmeaBuffer));
 
-
-bool ledState = LOW;
 volatile bool ppsTriggered = false;
 
 void ppsHandler(void)
@@ -53,8 +39,6 @@ void gpsHardwareReset()
   delay(2000);
 
 }
-
-
 //Read 32 bytes from I2C
 void readI2C(char *inBuff)
 {/*
@@ -75,9 +59,6 @@ void setup(void)
 {
   Serial.begin(115200); // Serial
   gps.begin(); // gps
-
-  pinMode(LED_BUILTIN, OUTPUT);
-  digitalWrite(LED_BUILTIN, ledState);
 
   //Start the module
   pinMode(RESET_PIN, OUTPUT);
@@ -100,48 +81,20 @@ void setup(void)
     idx++;
     idx %= 32;
   }
-  while ((uint8_t) c != 0xFF);
+  while ((uint8_t) c != 0xFF);//-1
 }
 
 void loop(void)
-{
-  //If a message is recieved print all the informations
-  if (ppsTriggered) {
-    ppsTriggered = false;
-    ledState = !ledState;
-    digitalWrite(LED_BUILTIN, ledState);
+{Serial.println("loop");
+  //Read 32 bytes from I2C
+  readI2C(buff);
+  delay(I2C_DELAY);
 
-    // Output GPS information from previous second
-    long latitude_mdeg = nmea.getLatitude();
-    long longitude_mdeg = nmea.getLongitude();
-    Serial.print("Latitude (deg): ");
-    Serial.println(latitude_mdeg / 1000000., 6);
+  //Parse the NMEA message
+  nmea.parse(buff, 32);
 
-    Serial.print("Longitude (deg): ");
-    Serial.println(longitude_mdeg / 1000000., 6);
-
-    Serial.print("Course: ");
-    Serial.println(nmea.getCourse() / 1000., 3);
-    Serial.println("-----------------------");
-    nmea.clear();
-  }
-
-  //While the message isn't complete
-  while (!ppsTriggered) {
-    char c ;
-    if (idx == 0) {
-      readI2C(buff);
-      delay(I2C_DELAY);
-    }
-    //Fetch the character one by one
-    c = buff[idx];
-    idx++;
-    idx %= 32;
-    //If we have a valid character pass it to the library
-    if ((uint8_t) c != 0xFF) {
-      Serial.print(c);
-      nmea.process(c);
-    }
-  }
-
+  //Print the NMEA message
+  Serial.println(nmeaBuffer);
+  delay(1000);
+  
 }
