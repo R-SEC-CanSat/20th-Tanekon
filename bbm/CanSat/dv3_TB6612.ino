@@ -1,16 +1,17 @@
-#include <M5Core2.h>
+#include <SPI.h>
+#include <Wire.h>
 // Arduino Nano
 const int STBY = 2;     // モータードライバの制御の準備
-const int AIN1 = 0;     // 1つ目のDCモーターの制御
-const int AIN2 = 34;     // 1つ目のDCモーターの制御
-const int BIN1 = 19;     // 2つ目のDCモーターの制御
-const int BIN2 = 27;     // 2つ目のDCモーターの制御
-const int PWMA = 25;     // 1つ目のDCモーターの回転速度
-const int PWMB = 26;    // 2つ目のDCモーターの回転速度
+const int AIN1 = 3;     // 1つ目のDCモーターの制御
+const int AIN2 = 4;     // 1つ目のDCモーターの制御
+const int BIN1 = 7;     // 2つ目のDCモーターの制御
+const int BIN2 = 8;     // 2つ目のDCモーターの制御
+const int PWMA = 5;     // 1つ目のDCモーターの回転速度
+const int PWMB = 6;    // 2つ目のDCモーターの回転速度
 void setup() {
-    M5.begin(); 
+    
     Serial.begin(9600);
-  delay(1000);
+  delay(1);
     pinMode(STBY, OUTPUT);
     pinMode(AIN1, OUTPUT);
     pinMode(AIN2, OUTPUT);
@@ -27,15 +28,22 @@ void loop() {
     digitalWrite(BIN1, HIGH);
     digitalWrite(BIN2, LOW);
     Serial.println("P_GPS_Moter");
-    delay(1000);
+    delay(5000);
     // 右回り（左回りは逆）
+    digitalWrite(AIN1, HIGH);
+    digitalWrite(AIN2, LOW);
+    digitalWrite(BIN1, LOW);
+    digitalWrite(BIN2, HIGH);
+    delay(5000);
+    // 後進
     digitalWrite(AIN1, LOW);
     digitalWrite(AIN2, HIGH);
     digitalWrite(BIN1, LOW);
     digitalWrite(BIN2, HIGH);
     Serial.println("P_GPS_Moter");
-    delay(1000);
+    delay(5000);
     // 回転速度を設定（0～255）まで
     analogWrite(PWMA, 255);
     analogWrite(PWMB, 255);
 }
+  

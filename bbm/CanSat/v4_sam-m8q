@@ -23,15 +23,10 @@ MicroNMEA nmea(nmeaBuffer, sizeof(nmeaBuffer));
 
 volatile bool ppsTriggered = false;
 
-
-void ppsHandler(void);
-
-
 void ppsHandler(void)
 {
   ppsTriggered = true;
 }
-
 
 void gpsHardwareReset()
 {
@@ -44,11 +39,13 @@ void gpsHardwareReset()
   delay(2000);
 
 }
-
-
 //Read 32 bytes from I2C
 void readI2C(char *inBuff)
-{
+{/*
+  gps.beginTransmission(DEFAULT_DEVICE_ADDRESS);
+  gps.write((uint8_t) DEFAULT_DEVICE_PORT);
+  gps.endTransmission(false);
+  */
   gps.requestFrom((uint8_t)DEFAULT_DEVICE_ADDRESS, (uint8_t) 32);
   int i = 0;
   while (gps.available()) {
@@ -57,21 +54,16 @@ void readI2C(char *inBuff)
   }
 }
 
+
 void setup(void)
 {
   Serial.begin(115200); // Serial
   gps.begin(); // gps
 
-
   //Start the module
   pinMode(RESET_PIN, OUTPUT);
   digitalWrite(RESET_PIN, HIGH);
-  Serial.println("Resetting GPS module ...");
   gpsHardwareReset();
-  Serial.println("... done");
-
-
-  delay(1000);
 
   //Reinitialize I2C after the reset
   gps.begin();
@@ -89,65 +81,24 @@ void setup(void)
     idx++;
     idx %= 32;
   }
-  while ((uint8_t) c != 0xFF);
-
-  pinMode(11, INPUT);
-  attachInterrupt(digitalPinToInterrupt(11), ppsHandler, RISING);
+  while ((uint8_t) c != 0xFF);//-1
 }
 
-void loop(void)
-{
-  //If a message is recieved print all the informations
-  if (ppsTriggered) {
-    ppsTriggered = false;
-
-
-    Serial.print("Date/time: ");
-    Serial.print(nmea.getYear());
-    Serial.print('-');
-    Serial.print(int(nmea.getMonth()));
-    Serial.print('-');
-    Serial.print(int(nmea.getDay()));
-    Serial.print('T');
-    Serial.print(int(nmea.getHour()));
-    Serial.print(':');
-    Serial.print(int(nmea.getMinute()));
-    Serial.print(':');
-    Serial.println(int(nmea.getSecond()));
-
-    long latitude_mdeg = nmea.getLatitude();
-    long longitude_mdeg = nmea.getLongitude();
-    Serial.print("Latitude (deg): ");
-    Serial.println(latitude_mdeg / 1000000., 6);
-
-    Serial.print("Longitude (deg): ");
-    Serial.println(longitude_mdeg / 1000000., 6);
-
-
-    Serial.print("Speed: ");
-    Serial.println(nmea.getSpeed() / 1000., 3);
-    Serial.print("Course: ");
-    Serial.println(nmea.getCourse() / 1000., 3);
-    Serial.println("-----------------------");
-    nmea.clear();
-  }
-
-  //While the message isn't complete
-  while (!ppsTriggered) {
-    char c ;
-    if (idx == 0) {
-      readI2C(buff);
-      delay(I2C_DELAY);
-    }
-    //Fetch the character one by one
+void loop(void){
+  Serial.println("loop");
+  //Read 32 bytes from I2C
+  readI2C(buff);
+  delay(I2C_DELAY);
+  Serial.println(buff);
+  char c ;
+  for (idx = 0; idx < 32; idx++){
     c = buff[idx];
     idx++;
     idx %= 32;
-    //If we have a valid character pass it to the library
-    if ((uint8_t) c != 0xFF) {
+    if(c != 0xFF){
       Serial.print(c);
-      nmea.process(c);
     }
   }
-
+  Serial.println();
+  delay(1000);
 }
