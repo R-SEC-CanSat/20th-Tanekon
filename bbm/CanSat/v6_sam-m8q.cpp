@@ -1,118 +1,115 @@
-#include <Melopero_SAM_M8Q.h>
+
 #include <Wire.h>
+#include <SPI.h>
 
-Melopero_SAM_M8Q gps;
+//I2C communication parameters
+#define DEFAULT_DEVICE_ADDRESS 0x42
+#define I2C_DELAY 1
 
-void setup() {
-  Serial.begin(9600);
-  while(!Serial);
+//I2C read data structures
+char buff[80];
+int idx = 0;
+char  lat[9],lon[10];
 
-  // init the i2c communication channel
-  // by default it uses the SAM_M8Q_DEFAULT_I2C_ADDRESS and Wire (I2C-0)
-  // You can specify a different address and/or bus:
-  // gps.initI2C(address, bus);
-  // For example for Wire1 it would be: 
-  // Wire1.begin();
-  // gps.initI2C(SAM_M8Q_DEFAULT_I2C_ADDRESS, Wire1);
-  Wire.begin();
-  gps.initI2C();
-
-  //First set up the gps to use only UBX messages
-  //Many functions in the library return a Status
-  //You can get a description of the status with:
-  //gps.getStatusDescription(status);
-  //(This function returns a String)
-  Serial.print("Setting comunication to ubx only: ");
-  Status stat = gps.setCommunicationToUbxOnly();
-  Serial.print(gps.getStatusDescription(stat));
-  //Check if there was an error
-  if (stat != Status::NoError){
-    Serial.println(" Something went wrong... (check connections and restart script)");
-    while (true);
+//Read 80 bytes from I2C
+void readI2C(char *inBuff)
+{Wire.requestFrom((uint8_t)DEFAULT_DEVICE_ADDRESS, (uint8_t) 80);
+  int i = 0;
+  while (Wire.available()) {
+    inBuff[i] = Wire.read();
+    i++;
   }
-
-  //After a configuration message is sent the device will
-  //send an acknowledge or a not acknowledged message.
-  //After having sent a configuration message you can
-  //wait for the acknowledge with:
-  //gps.waitForAcknowledge(MSG_CLASS, MSG_ID);
-  //Where MSG_CLASS and MSG_ID are the class and id of the
-  //message you are waiting an acknowledge for.
-  bool ack = gps.waitForAcknowledge(CFG_CLASS, CFG_PRT);
-  Serial.print(" acknowledged : ");
-  Serial.println(ack);
-
-  // set the PVT to be sent 10 times a second:
-  // setMeasurementFrequency(measurementPeriod, measurementspersolution)
-  // with these settings we will have a measurement every 50 milliseconds
-  // and a navigation solution every 2 measurements which means every 100 
-  // milliseconds. 
-  stat = gps.setMeasurementFrequency(50, 2);
-  Serial.print("Set measurement and navigation solution frequency: ");
-  Serial.print(gps.getStatusDescription(stat));
-  ack = gps.waitForAcknowledge(CFG_CLASS, CFG_RATE);
-  Serial.print(" Acknowledged: ");
-  Serial.println(ack);
-
-
-  // set the pvt message send rate:
-  // in this way the message will be sent every navigation solution
-  stat = gps.setMessageSendRate(NAV_CLASS, NAV_PVT, 1);
-  Serial.print("Set message send rate: ");
-  Serial.print(gps.getStatusDescription(stat));
-  ack = gps.waitForAcknowledge(CFG_CLASS, CFG_MSG);
-  Serial.print(" Acknowledged: ");
-  Serial.println(ack);
 }
 
-void loop() {
-    //Update the PVT data contained in gps.pvtData
-    //with gps.updatePVT(polling , timeoutMillis)
-    //by default polling is false and timeoutMillis = 1000
-    Status stat = gps.updatePVT();
-    if (stat == Status::NoError){
-      //Print out the data
-      printDate();
-      Serial.print("Gnss fix : ");
-      Serial.println(getGNSSFixType(gps.pvtData.fixType));
-      if (gps.pvtData.fixType != NO_FIX){
-        printCoordinates();
-        printHeight();
+void setup(void)
+{
+  Serial.begin(115200); // Serial
+  Serial.println("Starting ...");
+  Wire.begin(); // Wire
+
+
+  delay(4000);
+
+  //Reinitialize I2C after the reset
+  Wire.begin();
+
+  //clear i2c buffer
+  char c;
+  idx = 0;
+  memset(buff, 0, 80);
+  do {
+    if (idx == 0) {
+      readI2C(buff);
+      delay(I2C_DELAY);
+    }
+    c = buff[idx];
+    idx++;
+    idx %= 80;
+  }
+  while ((uint8_t) c != 0xFF);
+
+}
+void GPS_data(){
+  
+  while(1){
+    char c ;
+    //改行文字で初期化したい
+    if (idx == 0 ) {
+      readI2C(buff);
+      delay(I2C_DELAY);
+      //Serial.print("readI2C");
+      idx = 0;
+    }
+    //Fetch the character one by one
+    c = buff[idx];
+    idx++;
+    idx %= 80;
+    //If we have a valid character pass it to the library
+    if ((uint8_t) c != 0xFF) {
+      Serial.print(c);
+      //GGAならば緯度経度を取得する
+      if (c == '$' && idx < 40) {
+        if(buff[idx+2] == 'G'){
+          if(buff[idx+3] == 'G'){
+            if(buff[idx+4] == 'A'){
+              for(int i = 0; i < 4; i++){
+                lat[i] = buff[idx+16+i];
+              }
+              for(int i = 0; i < 5; i++){
+                //小数点は除外する
+                lat[i + 4] = buff[idx+21+i];
+              }
+              for(int i = 0; i < 5; i++){
+                //小数点は除外する
+                lon[i] = buff[idx+29+i];
+              }
+              for(int i = 0; i < 5; i++){
+                //小数点は除外する
+                lon[i + 5] = buff[idx+35+i];
+              }
+              
+              break;
+              
+            }
+          }
+        }
       }
+    
     }
-    else {
-      Serial.println(gps.getStatusDescription(stat));
-    }
+  }
 }
-
-void printDate(){
-  Serial.print("[");
-  Serial.print(gps.pvtData.year);
-  Serial.print(" - ");
-  Serial.print(gps.pvtData.month);
-  Serial.print(" - ");
-  Serial.print(gps.pvtData.day);
-  Serial.print("] ");
-
-  Serial.print(gps.pvtData.hour);
-    Serial.print(" : ");
-  Serial.print(gps.pvtData.min);
-    Serial.print(" : ");
-  Serial.println(gps.pvtData.sec);
-}
-
-void printCoordinates(){
-  Serial.print("Longitude : ");
-  Serial.print(gps.pvtData.longitude);
-  Serial.print(" Latitude : ");
-  Serial.print(gps.pvtData.latitude);
-  Serial.println(" Scale: 1e-7  Unit: degrees");
-}
-
-void printHeight(){
-  Serial.print("Heigth: ");
-  Serial.print(gps.pvtData.height);
-  Serial.print(" Height MSL: ");
-  Serial.print(gps.pvtData.hMSL);
-  Serial.println(" Unit: millimeters");
+void loop(void)
+{
+  GPS_data();
+  
+  long mlat = atol(lat);
+  double latitude = (double)mlat * 1.0E-7;
+  long mlon = atol(lon);
+  double longitude = mlon * 1.0E-7;
+  Serial.print("latitude_deg: ");
+  Serial.println(latitude,7);
+  Serial.println();
+  Serial.print("longitude_deg: ");
+  Serial.println(longitude,7);  
+  Serial.println();
 }
