@@ -1,3 +1,44 @@
+/**
+ ******************************************************************************
+ * @file    X_NUCLEO_GNSS1A1_MicroNMEA_I2C.ino
+ * @author  AST
+ * @version V1.0.0
+ * @date    January 2018
+ * @brief   Arduino test application for the STMicrolectronics X-NUCLEO-GNSS1A1
+ *          GNSS module expansion board based on TeseoLIV3F.
+ ******************************************************************************
+ * @attention
+ *
+ * <h2><center>&copy; COPYRIGHT(c) 2019 STMicroelectronics</center></h2>
+ *
+ * Redistribution and use in source and binary forms, with or without modification,
+ * are permitted provided that the following conditions are met:
+ *   1. Redistributions of source code must retain the above copyright notice,
+ *      this list of conditions and the following disclaimer.
+ *   2. Redistributions in binary form must reproduce the above copyright notice,
+ *      this list of conditions and the following disclaimer in the documentation
+ *      and/or other materials provided with the distribution.
+ *   3. Neither the name of STMicroelectronics nor the names of its contributors
+ *      may be used to endorse or promote products derived from this software
+ *      without specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+ * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+ * DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
+ * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+ * SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+ * CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
+ * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ *
+ ******************************************************************************
+ */
+
+//NOTE: In order for this example to work, the jumper J4 on the device should
+//      be moved to J8
+//NOTE: This example is compatible with the Arduino Uno board
 
 #include <MicroNMEA.h>
 #include <Wire.h>
@@ -10,7 +51,6 @@
 #define RESET_PIN 10
 
 
-// Refer to Stream devices by use
 TwoWire& gps = Wire;
 
 //I2C read data structures
@@ -21,12 +61,18 @@ int idx = 0;
 char nmeaBuffer[100];
 MicroNMEA nmea(nmeaBuffer, sizeof(nmeaBuffer));
 
+
 volatile bool ppsTriggered = false;
+
+
+void ppsHandler(void);
+
 
 void ppsHandler(void)
 {
   ppsTriggered = true;
 }
+
 
 void gpsHardwareReset()
 {
@@ -39,14 +85,11 @@ void gpsHardwareReset()
   delay(2000);
 
 }
+
+
 //Read 32 bytes from I2C
 void readI2C(char *inBuff)
-{/*
-  gps.beginTransmission(DEFAULT_DEVICE_ADDRESS);
-  gps.write((uint8_t) DEFAULT_DEVICE_PORT);
-  gps.endTransmission(false);
-  */
-  gps.requestFrom((uint8_t)DEFAULT_DEVICE_ADDRESS, (uint8_t) 32);
+{gps.requestFrom((uint8_t)DEFAULT_DEVICE_ADDRESS, (uint8_t) 32);
   int i = 0;
   while (gps.available()) {
     inBuff[i] = gps.read();
@@ -54,16 +97,20 @@ void readI2C(char *inBuff)
   }
 }
 
-
 void setup(void)
 {
   Serial.begin(115200); // Serial
+  Serial.println("Starting ...");
   gps.begin(); // gps
 
   //Start the module
   pinMode(RESET_PIN, OUTPUT);
   digitalWrite(RESET_PIN, HIGH);
+  Serial.println("Resetting GPS module ...");
   gpsHardwareReset();
+  Serial.println("... done");
+
+  delay(1000);
 
   //Reinitialize I2C after the reset
   gps.begin();
@@ -81,24 +128,30 @@ void setup(void)
     idx++;
     idx %= 32;
   }
-  while ((uint8_t) c != 0xFF);//-1
+  while ((uint8_t) c != 0xFF);
+
+  pinMode(11, INPUT);
+  attachInterrupt(digitalPinToInterrupt(11), ppsHandler, RISING);
 }
 
-void loop(void){
-  Serial.println("loop");
-  //Read 32 bytes from I2C
-  readI2C(buff);
-  delay(I2C_DELAY);
-  Serial.println(buff);
-  char c ;
-  for (idx = 0; idx < 32; idx++){
+void loop(void)
+{
+    char c ;
+    if (idx == 0) {
+      readI2C(buff);
+      delay(I2C_DELAY);
+    }
+    //Fetch the character one by one
     c = buff[idx];
     idx++;
     idx %= 32;
-    if(c != 0xFF){
+    //If we have a valid character pass it to the library
+    if ((uint8_t) c != 0xFF) {
       Serial.print(c);
+      
+      //nmea.process(c);
     }
-  }
-  Serial.println();
-  delay(1000);
+    
+  
+
 }
