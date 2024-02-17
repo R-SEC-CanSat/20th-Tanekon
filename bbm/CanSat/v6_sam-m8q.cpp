@@ -108,8 +108,6 @@ void loop(void)
   double longitude = mlon * 1.0E-7;
   Serial.print("latitude_deg: ");
   Serial.println(latitude,7);
-  Serial.println();
   Serial.print("longitude_deg: ");
   Serial.println(longitude,7);  
-  Serial.println();
 }
