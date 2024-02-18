@@ -32,7 +32,7 @@ const int BIN1 = 7;     // 2つ目のDCモーターの制御
 const int BIN2 = 8;     // 2つ目のDCモーターの制御
 const int PWMA = 5;     // 1つ目のDCモーターの回転速度
 const int PWMB = 6;    // 2つ目のDCモーターの回転速度
-const int fusePin = 9;
+const int fusePin = 11;
 
 double currentGPSdata[3] = {0,0,0};
 double eulerdata[3] = {0,0,0};
@@ -45,7 +45,7 @@ TwoWire& gps = Wire;
 //I2C read data structures
 char buff[80];
 int idx = 0;
-char  lat[9],lon[10];
+char lat[9],lon[10];
 
 //左右の回転速度を0基準に設定(v∈[-255,255])
 void MoterControl( int left,int right) {
@@ -299,7 +299,8 @@ void split(String data){
 void P_camera_Moter(){
   char buff[255];
   int counter = 0;
-  while(mySerial.available()>0){
+  while(1){
+  if(mySerial.available()>0){
     char val = char(mySerial.read());
     buff[counter] = val;
     counter++;  
@@ -307,7 +308,7 @@ void P_camera_Moter(){
         Serial.println(buff);
         //文字列を整数リストに変換
         split(buff);
-        if(camera_data[2]>70){
+        if(camera_data[2]>0.70){
             break;
         }
         Serial.print(camera_data[0]);
@@ -322,9 +323,8 @@ void P_camera_Moter(){
 
         MoterControl(PID2_left,PID2_right);
         counter = 0;
-        pre_camera_data[0] = "";
-        pre_camera_data[1] = "";
     }
+  }
   }
 }
 
@@ -349,6 +349,7 @@ void setup(void)
     pinMode(PWMA, OUTPUT);
     pinMode(PWMB, OUTPUT);
     pinMode(fusePin, OUTPUT);
+    digitalWrite(fusePin, LOW);
 
     //BNO055関連
     if (!bno.begin())
@@ -384,7 +385,7 @@ void setup(void)
 }
 void loop() {
     housyutu();
-    //P_GPS_Moter();
+    P_GPS_Moter();
     P_camera_Moter();
     exit(0);
 }
