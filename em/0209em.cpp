@@ -110,13 +110,12 @@ void GPS(){
     double latitude_deg = latitude_mdeg / 1000000.0;
     double longitude_deg = longitude_mdeg / 1000000.0;
     double goaldirection = 57.2957795131 * atan2(goalGPSdata2[0] - latitude_deg, goalGPSdata2[1] - longitude_deg);//ラジアンで出てる  
-    //北を0度とした0~360の値に変換
-    if(goaldirection > 90 && goaldirection < 180){
-        goaldirection = 450 - goaldirection;
+    //北が0度、東が-90度、南が180度、西が90度
+    if (-90 <= goaldirection){
+        goaldirection = goaldirection + 90;
     }
     else{
-        goaldirection = 90 - goaldirection;
-    }
+        goaldirection = goaldirection + 270;}
     currentGPSdata[0] = latitude_deg;
     currentGPSdata[1] = longitude_deg;
     currentGPSdata[2] = goaldirection;

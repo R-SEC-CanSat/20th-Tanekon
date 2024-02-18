@@ -34,16 +34,16 @@ const int PWMA = 5;     // 1つ目のDCモーターの回転速度
 const int PWMB = 6;    // 2つ目のDCモーターの回転速度
 const int fusePin = 9;
 
-double currentGPSdata[3];
-double eulerdata[3];
-double azidata[2];
+double currentGPSdata[3] = {0,0,0};
+double eulerdata[3] = {0,0,0};
+double azidata[2] = {0,0};
 
 //I2C communication parameters
 #define DEFAULT_DEVICE_ADDRESS 0x42
 TwoWire& gps = Wire;
 
 //I2C read data structures
-char buff[32];
+char buff[80];
 int idx = 0;
 char  lat[9],lon[10];
 
@@ -102,7 +102,7 @@ void GPS_data(){
     //改行文字で初期化したい
     if (idx == 0 ) {
       readI2C(buff);
-      delay(I2C_DELAY);
+      delay(1);
       //Serial.print("readI2C");
       idx = 0;
     }
@@ -137,7 +137,7 @@ void GPS_data(){
                 double latitude = (double)mlat * 1.0E-7;
                 long mlon = atol(lon);
                 double longitude = mlon * 1.0E-7;
-                double goaldirection
+                double goaldirection;
                 currentGPSdata[0] = latitude;
                 currentGPSdata[1] = longitude;
                 break;
@@ -205,7 +205,7 @@ void housyutu(){
 
 }
 void GetAzimuthDistance(){
-    GPS();
+    GPS_data();
     Euler();
     //回転の程度をとりあえず整えてみる(turnpower∈[-180,180])
     double turnpower;
@@ -302,9 +302,11 @@ void P_camera_Moter(){
 
 void setup(void)
 {
-  Serial.begin(115200);
+  Serial.begin(9600);
   mySerial.begin(57600);// ソフトウェアシリアル通信の開始
+  Serial.println("Starting ...");
   Wire.begin();
+
   delay(1000);
 
   Wire.begin();
