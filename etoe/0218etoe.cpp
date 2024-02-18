@@ -137,9 +137,15 @@ void GPS_data(){
                 double latitude = (double)mlat * 1.0E-7;
                 long mlon = atol(lon);
                 double longitude = mlon * 1.0E-7;
-                double goaldirection;
+                double goaldirection  = 57.2957795131 * atan2(goalGPSdata[0] - latitude, goalGPSdata[1] - longitude);
+                if(goaldirection > -90){
+                    goaldirection -= 90;
+                }else{
+                    goaldirection += 270;
+                }
                 currentGPSdata[0] = latitude;
                 currentGPSdata[1] = longitude;
+                currentGPSdata[2] = goaldirection;
                 break;
               
             }
@@ -189,10 +195,11 @@ void Euler(){
 
 void housyutu(){
     Serial.println("housyutu");
+    while (1)
+    {
     Euler();
     Serial.println(eulerdata[1]);
-    while (1)
-    {if (eulerdata[1] <= 70) {
+    if (eulerdata[1] <= 45 && eulerdata[1] >= -45) {
         digitalWrite(fusePin, HIGH); // 溶断回路を通電
         delay(1000);
         digitalWrite(fusePin, LOW); // 
@@ -204,23 +211,42 @@ void housyutu(){
     }
 
 }
+double distanceBetween(double lat1, double long1, double lat2, double long2)
+{
+  // returns distance in meters between two positions, both specified
+  // as signed decimal-degrees latitude and longitude. Uses great-circle
+  // distance computation for hypothetical sphere of radius 6372795 meters.
+  // Because Earth is no exact sphere, rounding errors may be up to 0.5%.
+  // Courtesy of Maarten Lamers
+  double delta = radians(long1-long2);
+  double sdlong = sin(delta);
+  double cdlong = cos(delta);
+  lat1 = radians(lat1);
+  lat2 = radians(lat2);
+  double slat1 = sin(lat1);
+  double clat1 = cos(lat1);
+  double slat2 = sin(lat2);
+  double clat2 = cos(lat2);
+  delta = (clat1 * slat2) - (slat1 * clat2 * cdlong);
+  delta = sq(delta);
+  delta += sq(clat2 * sdlong);
+  delta = sqrt(delta);
+  double denom = (slat1 * slat2) + (clat1 * clat2 * cdlong);
+  delta = atan2(delta, denom);
+  return delta * 6372795;
+}
+
 void GetAzimuthDistance(){
     GPS_data();
     Euler();
     //回転の程度をとりあえず整えてみる(turnpower∈[-180,180])
     double turnpower;
     turnpower = currentGPSdata[2] - eulerdata[2];
-    if (turnpower > 180 && turnpower < 360){
-        turnpower = turnpower - 360;
+    if (turnpower > 180){
+        turnpower -= 360;
     }
-    else if(turnpower < -180 && turnpower > -360){
-        turnpower = turnpower + 360;
-    }
-    else if(turnpower < 0 && turnpower > -180){
-        turnpower = turnpower;
-    }
-    else{
-        turnpower = turnpower;
+    else if (turnpower < -180){
+        turnpower += 360;
     }
     Serial.print("GPS Data : ");
     Serial.print(currentGPSdata[2]);
@@ -229,8 +255,8 @@ void GetAzimuthDistance(){
     Serial.print("\tMoterControl : ");
     Serial.println(turnpower);
     
-    azidata[0] =  Kp * turnpower;
-    azidata[1] = sqrt(pow(goalGPSdata[0] - currentGPSdata[0], 2) + pow(goalGPSdata[1] - currentGPSdata[1], 2));
+    azidata[0] = turnpower;
+    azidata[1] = distanceBetween(goalGPSdata[0],goalGPSdata[1],currentGPSdata[0],currentGPSdata[1]);
     Serial.print("\tDistance: ");
     Serial.println(azidata[1]);
 
@@ -244,8 +270,8 @@ void P_GPS_Moter(){
         break;
         }
     else{
-        int PID_left = 0.7 * azidata[0] + 126;
-        int PID_right = - 0.7 * azidata[0] + 126;
+        int PID_left = 0.65 * azidata[0] + 126;
+        int PID_right = - 0.65 * azidata[0] + 126;
         MoterControl(PID_left, PID_right);
         delay(250);
         }
@@ -264,9 +290,10 @@ void split(String data){
         else{pre_camera_data[index] += tmp;}
     }
     //文字列リストを整数リストに変換
-    for(int i = 0; i < 3; i++){
+    for(int i = 0; i < 2; i++){
         camera_data[i] = pre_camera_data[i].toInt();
     }
+    double camera_area_data = pre_camera_data[2].toDouble();
     
 }
 void P_camera_Moter(){
@@ -289,7 +316,8 @@ void P_camera_Moter(){
         int PID2_left = 0.75 * (camera_data[0]-160) + 120;
         int PID2_right = 0.75 * (160 - camera_data[0]) + 120;
         Serial.print("\tMoterControl: ");
-        Serial.println(PID2_left);
+        Serial.print(PID2_left);
+        Serial.print(",");
         Serial.println(PID2_right);
 
         MoterControl(PID2_left,PID2_right);
@@ -356,6 +384,7 @@ void setup(void)
 }
 void loop() {
     housyutu();
-    P_GPS_Moter();
+    //P_GPS_Moter();
     P_camera_Moter();
+    exit(0);
 }
