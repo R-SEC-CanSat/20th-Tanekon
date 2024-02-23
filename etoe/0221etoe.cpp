@@ -1,8 +1,9 @@
 //#include <M5Core2.h>
 //標準ライブラリ
+#include <Arduino.h>
 #include <Wire.h>
 #include <SPI.h>
-#include <SoftwareSerial.h>
+//#include <SoftwareSerial.h>
 //それ以外のライブラリ
 #include <Adafruit_Sensor.h>
 #include <Adafruit_BNO055.h>
@@ -21,7 +22,7 @@ double goalGPSdata4[2] = {35.702797, 139.561109};
 double goalGPSdata3[2] = {35.717147,139.823209};
 
 //カメラの値を受け取るためのシリアル通信
-SoftwareSerial mySerial(9, 10);    // RX,TXの割り当て
+//SoftwareSerial Serial1(9, 10);    // RX,TXの割り当て
 String pre_camera_data[2];
 int camera_data[3];
 
@@ -302,8 +303,8 @@ void P_camera_Moter(){
   char buff[255];
   int counter = 0;
   while(1){
-  if(mySerial.available()>0){
-    char val = char(mySerial.read());
+  if(Serial1.available()>0){
+    char val = char(Serial1.read());
     buff[counter] = val;
     counter++;  
     if (val == '\n'){
@@ -334,7 +335,7 @@ void P_camera_Moter(){
 void setup(void)
 {
   Serial.begin(9600);
-  mySerial.begin(57600);// ソフトウェアシリアル通信の開始
+  Serial1.begin(57600);// ソフトウェアシリアル通信の開始
   Serial.println("Starting ...");
   Wire.begin();
 

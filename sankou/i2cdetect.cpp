@@ -1,3 +1,4 @@
+#include <Arduino.h>
 #include <Wire.h>
 #include <SPI.h>
 #include <i2cdetect.h>
