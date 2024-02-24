@@ -36,7 +36,7 @@ sensor.set_auto_gain(False)         # オートゲインをオフ
 sensor.__write_reg(0x80, 0xEF)      # オートホワイトバランスをオフ
 sensor.skip_frames(time = 2000)     # 2秒間フレームをスキップして安定化
 
-threshold = [(32, 100, 32, 127, -5, 127)] # 検出する色のしきい値を設定
+threshold = [(7, 100, 16, 127, -33, 127)] # 検出する色のしきい値を設定
 
 while(True):
     img = sensor.snapshot()           # 画像を取得
