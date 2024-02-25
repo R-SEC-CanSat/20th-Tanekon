@@ -36,7 +36,7 @@ sensor.set_auto_gain(False)         # オートゲインをオフ
 sensor.__write_reg(0x80, 0xEF)      # オートホワイトバランスをオフ
 sensor.skip_frames(time = 2000)     # 2秒間フレームをスキップして安定化
 
-threshold = [(32, 100, 32, 127, -5, 127)] # 検出する色のしきい値を設定
+threshold = [(7, 100, 16, 127, -33, 127)] # 検出する色のしきい値を設定
 
 while(True):
     img = sensor.snapshot()           # 画像を取得
@@ -46,7 +46,7 @@ while(True):
         max_per = max_blob.area()/76800
         img.draw_rectangle(max_blob[0:4])             # 検出した色を矩形で囲む
         img.draw_cross(max_blob[5], max_blob[6])# 検出した色の中心に十字を描く
-        sendstr = str(max_blob[5])+","+str(max_blob[6])+","+str(max_per)
+        sendstr = "$" +str(max_blob[5])+","+str(max_blob[6])+","+str(max_per)
         for char in sendstr:
             uart.write(char)
         uart.write("\n")
