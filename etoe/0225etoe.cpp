@@ -196,8 +196,7 @@ void setup() {
     // servo setting
     servo.attach(SERVO_PIN,510,2400);
     //BNO055関連
-    if (!bno.begin())
-    {
+    if (!bno.begin()){
         /* There was a problem detecting the BNO055 ... check your connections */
         Serial.print("Ooops, no BNO055 detected ... Check your wiring or I2C ADDR!");
         while (1);
