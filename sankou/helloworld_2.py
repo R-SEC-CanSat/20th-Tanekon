@@ -57,5 +57,6 @@ while(True):
             uart.write(char)
         uart.write("\n")
         print("0,0,0")
+    time.sleep(0.001)
 
 

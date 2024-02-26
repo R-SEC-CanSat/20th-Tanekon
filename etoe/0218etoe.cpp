@@ -49,7 +49,7 @@ char buff[80];
 int idx = 0;
 char lat[9],lon[10];
 
-//左右の回転速度を0基準に設定(v∈[-255,255])
+//左右の回転速度を0基準に設定(v∈[-255,255])y
 void MoterControl( int left,int right) {
     int absleft = abs(left);
     int absright = abs(right);
