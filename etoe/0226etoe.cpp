@@ -33,7 +33,7 @@ double goalGPSdata3[2] = {35.717147,139.823209};
 //I2C read data structures
 char buff[80];
 int idx = 0;
-char lat[9],lon[10];
+char lat[10],lon[11];
 int PID_left;
 int PID_right;
 
@@ -119,6 +119,7 @@ void GPS_data(){
   
   while(1){
     char c ;
+    char* startlonptr = strchr(buff, 'N'); // 指定した文字の位置を取得
     //改行文字で初期化したい
     if (idx == 0 ) {
       readI2C(buff);
@@ -138,21 +139,19 @@ void GPS_data(){
         if(buff[idx+2] == 'G'){
           if(buff[idx+3] == 'G'){
             if(buff[idx+4] == 'A'){
-                for(int i = 0; i < 4; i++){
+                for(int i = 0; i < 4; i++){//NMEAフォーマット特有の表記を調整
                     lat[i] = buff[idx+16+i];
                 }
                 for(int i = 0; i < 5; i++){
                     //小数点は除外する
                     lat[i + 4] = buff[idx+21+i];
                 }
-                for(int i = 0; i < 5; i++){
-                    //小数点は除外する
-                    lon[i] = buff[idx+29+i];
-                }
-                for(int i = 0; i < 5; i++){
-                    //小数点は除外する
-                    lon[i + 5] = buff[idx+35+i];
-                }
+                int startPos = startlonptr - buff;
+                // 指定した文字から二文字先の位置を計算
+                int secondPos = startPos + 2;
+                strncpy(lon, buff + secondPos, 5); // 二文字先から5文字をコピー
+                strncpy(lon + 5, buff + secondPos + 5, 5); // 二文字先から5文字をコピー
+                lon[11] = '\0'; // 終端文字を追加
                 long mlat = atol(lat);
                 double latitude = (double)mlat * 1.0E-7;
                 long mlon = atol(lon);
@@ -163,10 +162,11 @@ void GPS_data(){
                 }else{
                     goaldirection += 270;
                 }
+                Serial.print("longitude: ");
+                Serial.println(longitude);
                 Serial.print("latitude: ");
                 Serial.println(latitude);
-                Serial.print("\tlongitude: ");
-                Serial.println(longitude);
+                
                 delay(10);
                 currentGPSdata[0] = latitude;
                 currentGPSdata[1] = longitude;
@@ -265,31 +265,33 @@ void GetAzimuthDistance(){
     Serial.print("\tDistance: ");
     Serial.println(azidata[1]);
 }
+
 //GPSとオイラー角から右回転を正として回転量を出す
 void P_GPS_Moter(){ 
     Serial.println("P_GPS_Moter");
     while(true){
-    GetAzimuthDistance();
-    if(azidata[1] < 5){
-        break;
-        }
-    else{
-        if(azidata[0] > 0){
-            PID_left = 240;
-            PID_right = 240 - Kp * azidata[0];
-        }
+        GetAzimuthDistance();
+        if(azidata[1] < 5){
+            break;
+            }
         else{
-            PID_right = 240;
-            PID_left = 240 + Kp * azidata[0];
-        }｝
-        Serial.print("\tMoterpower : ");
-        Serial.print(PID_left);
-        Serial.println(",");
-        Serial.println(PID_right);
-        MoterControl(PID_left, PID_right);
-        delay(250);
-        }
-    } 
+            if(azidata[0] > 0){
+                PID_left = 240;
+                PID_right = 240 - Kp * azidata[0];
+            }
+            else{
+                PID_right = 240;
+                PID_left = 240 + Kp * azidata[0];
+            }
+            Serial.print("\tMoterpower : ");
+            Serial.print(PID_left);
+            Serial.print(",");
+            Serial.println(PID_right);
+            MoterControl(PID_left, PID_right);
+            delay(250);
+            
+        } 
+    }
 }
 void housyutu(){
     Serial.println("housyutu");
@@ -459,7 +461,7 @@ void loop() {
     MoterControl(200,200);
     delay(1000);
     stop();
-    P_GPS_Moter();
+    //P_GPS_Moter();
     //アーム展開
     Serial.println("camera sequence start");
     P_camera_Moter();
