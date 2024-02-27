@@ -21,13 +21,13 @@ double azidata[2] = {0,0};
 
 //gps setting
 //三鷹ファミマの緯度経度
-double goalGPSdata2[2] = {35.700993, 139.566498};
+double goalGPSdata[2] = {35.70099, 139.56649};
 //運河駅
-double goalGPSdata[2] = {35.914356, 139.905869};
+double goalGPSdata2[2] = {35.91435, 139.90586};
 //三鷹駅の緯度経度
-double goalGPSdata4[2] = {35.702797, 139.561109};
+double goalGPSdata4[2] = {35.70279, 139.56110};
 //ゴールの緯度経度(作業場近くのセブン)
-double goalGPSdata3[2] = {35.717147,139.823209};
+double goalGPSdata3[2] = {35.71714,139.82320};
 //I2C communication parameters
 #define DEFAULT_DEVICE_ADDRESS 0x42
 //I2C read data structures
@@ -53,7 +53,8 @@ const int BIN1 = 5; // 2つ目のDCモーターの制御
 const int BIN2 = 18; // 2つ目のDCモーターの制御
 const int PWMA = 0; // 1つ目のDCモーターの回転速度
 const int PWMB = 19; // 2つ目のDCモーターの回転速度
-const int fusePin = 23;
+const int RESET_PIN = 23;
+const int fusePin = 2;  // 溶断回路の制御
 
 
 //collect module setting
@@ -146,26 +147,33 @@ void GPS_data(){
                     //小数点は除外する
                     lat[i + 4] = buff[idx+21+i];
                 }
-                int startPos = startlonptr - buff;
-                // 指定した文字から二文字先の位置を計算
-                int secondPos = startPos + 2;
-                strncpy(lon, buff + secondPos, 5); // 二文字先から5文字をコピー
-                strncpy(lon + 5, buff + secondPos + 5, 5); // 二文字先から5文字をコピー
-                lon[11] = '\0'; // 終端文字を追加
-                long mlat = atol(lat);
-                double latitude = (double)mlat * 1.0E-7;
-                long mlon = atol(lon);
-                double longitude = mlon * 1.0E-7;
+                for(int i = 0; i < 5; i++){//NMEAフォーマット特有の表記を調整
+                    lon[i] = buff[idx+29+i];
+                }
+                for(int i = 0; i < 5; i++){
+                    //小数点は除外する
+                    lon[i + 5] = buff[idx+35+i];
+                }
+
+                String mlat = String(lat);
+                Serial.println(mlat);
+                Serial.println(mlat.substring(2,4).toDouble());
+                Serial.println(mlat.substring(4,9).toDouble());
+                Serial.println(mlat.substring(6,8).toDouble());
+                double latitude = mlat.substring(0,2).toDouble() + mlat.substring(2,9).toDouble() / 60.0 / 100000.0;
+                String mlon = String(lon);
+                double longitude = mlon.substring(0,3).toDouble() + mlon.substring(3,10).toDouble() / 60.0 / 100000.0;
                 double goaldirection  = 57.2957795131 * atan2(goalGPSdata[0] - latitude, goalGPSdata[1] - longitude);
                 if(goaldirection > -90){
                     goaldirection -= 90;
                 }else{
                     goaldirection += 270;
                 }
-                Serial.print("longitude: ");
-                Serial.println(longitude);
+                
                 Serial.print("latitude: ");
-                Serial.println(latitude);
+                Serial.print(latitude,7);
+                Serial.print("\tlongitude: ");
+                Serial.println(longitude,7);
                 
                 delay(10);
                 currentGPSdata[0] = latitude;
@@ -400,6 +408,19 @@ void P_camera_Moter(){
         }
     }
 }
+void gpsHardwareReset()
+{
+  //reset the device
+  digitalWrite(RESET_PIN, LOW);
+  delay(50);
+  digitalWrite(RESET_PIN, HIGH);
+
+  //wait for reset to apply
+  delay(2000);
+
+}
+
+
 void setup() {
     //serial setting
     Serial.begin(57600);
@@ -421,9 +442,15 @@ void setup() {
     pinMode(STBY, OUTPUT);
     pinMode(PWMA, OUTPUT);
     pinMode(PWMB, OUTPUT);
+    pinMode(RESET_PIN, OUTPUT);
     pinMode(fusePin, OUTPUT);
-    digitalWrite(fusePin, LOW);
+    digitalWrite(fusePin, LOW); // 溶断回路を通電
 
+    //gps hardware reset
+    Serial.println("Resetting GPS module ...");
+    //gpsHardwareReset();
+    Serial.println("... done");
+    delay(1000);
     // servo setting
     servo.attach(SERVO_PIN,510,2400);
     //BNO055関連
@@ -461,7 +488,7 @@ void loop() {
     MoterControl(200,200);
     delay(1000);
     stop();
-    //P_GPS_Moter();
+    P_GPS_Moter();
     //アーム展開
     Serial.println("camera sequence start");
     P_camera_Moter();
