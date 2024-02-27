@@ -34,6 +34,8 @@ double goalGPSdata3[2] = {35.717147,139.823209};
 char buff[80];
 int idx = 0;
 char lat[9],lon[10];
+int PID_left;
+int PID_right;
 
 //camera setting
 SoftwareSerial mySerial;
@@ -272,13 +274,18 @@ void P_GPS_Moter(){
         break;
         }
     else{
-        if(azidata[0] > 0)｛
-
-        ｝
-        int PID_left = 0.65 * azidata[0] + 126;
-        int PID_right = - 0.65 * azidata[0] + 126;
+        if(azidata[0] > 0){
+            PID_left = 240;
+            PID_right = 240 - Kp * azidata[0];
+        }
+        else{
+            PID_right = 240;
+            PID_left = 240 + Kp * azidata[0];
+        }｝
         Serial.print("\tMoterpower : ");
-        Serial.println(PID_left + PID_right);
+        Serial.print(PID_left);
+        Serial.println(",");
+        Serial.println(PID_right);
         MoterControl(PID_left, PID_right);
         delay(250);
         }
@@ -380,8 +387,12 @@ void P_camera_Moter(){
                             //MoterControl(PID2_left,PID2_right);
                             delay(1000);
                             counter = 0;
+                            break;
                         }
                     }
+                }
+                if(camera_area_data>0.40){//二重ループを抜けるための応急措置
+                    break;
                 }
             }
         }
