@@ -44,7 +44,6 @@ int camera_data[3];
 double camera_area_data = 0.0;
 
 //dcmoter setting
-//define for PID
 #define Kp 0.65
 const int STBY = 17; // モータードライバの制御の準備
 const int AIN1 = 16; // 1つ目のDCモーターの制御
@@ -56,10 +55,58 @@ const int PWMB = 19; // 2つ目のDCモーターの回転速度
 const int RESET_PIN = 23;
 const int fusePin = 2;  // 溶断回路の制御
 
+//SDcard setting
+const int SD_MOSI = 27
+const int SD_MISO = 25
+const int SD_SCK  = 26
+const int SD_CS_PIN 14
+File myFile;
+SPIClass SPISD(HSPI);
 
 //collect module setting
 const int  SERVO_PIN = 13;
 Servo servo;
+
+void SD_Init()void SD_Init(){
+  //  SPIClass SPI2(HSPI);
+
+
+    SPISD.begin(SD_SCK, SD_MISO, SD_MOSI);
+    if (!SD.begin(SD_CS_PIN,SPISD)) {  //SD_CS_PIN this pin is just the dummy pin since the SD need the input 
+    Serial.println(F("failed!"));
+    return;
+    }
+    else Serial.println(F("SD read!"));
+    myFile = SD.open("/test.txt", "a"); //append to file
+  if (myFile)
+  {
+    Serial.print("Writing to test.txt...");
+    myFile.println("testing 1, 2, 3.");
+    myFile.close();
+    Serial.println("done.");
+  }
+  else
+  {
+    Serial.println("error opening test.txt to write");
+  }
+  myFile = SD.open("/test.txt", "r"); //read from file
+  if (myFile)
+  {
+    Serial.println("test.txt:");
+    String inString;  //need to use Strings because of the ESP32 webserver
+    while (myFile.available())
+    {
+      inString += myFile.readString();
+    }
+    myFile.close();
+    Serial.print(inString);
+  }
+  else
+  {
+    Serial.println("error opening test.txt to read");
+  }
+}
+
 //左右の回転速度を0基準に設定(v∈[-255,255])
 void MoterControl( int left,int right) {
     int absleft = abs(left);
@@ -225,6 +272,14 @@ void Euler(){
     eulerdata[1] = pitch;
     eulerdata[2] = yaw;
 }
+
+
+void stack(){
+    
+
+    
+}
+
 double distanceBetween(double lat1, double long1, double lat2, double long2){
     // returns distance in meters between two positions, both specified
     // as signed decimal-degrees latitude and longitude. Uses great-circle
@@ -354,6 +409,7 @@ void split(String data){
         camera_data[i] = pre_camera_data[i].toInt();
     }
     camera_area_data = pre_camera_data[2].toDouble();
+    Serial.println(camera_area_data)
     
     
 }
