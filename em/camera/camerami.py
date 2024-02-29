@@ -36,10 +36,33 @@ sensor.set_auto_gain(False)         # オートゲインをオフ
 sensor.__write_reg(0x80, 0xEF)      # オートホワイトバランスをオフ
 sensor.skip_frames(time = 2000)     # 2秒間フレームをスキップして安定化
 
-threshold = [(7, 100, 16, 127, -33, 127)] # 検出する色のしきい値を設定
-
+threshold_red = [(27, 100, 23, 127, -17, 41)] # 検出する色のしきい値を設定
+#オレンジ
+threshold_orange = [(41, 95, -2, 37, -20, 41)] # 検出する色のしきい値を設定
+#yellow
+threshold_yellow = [(27, 100, 23, 127, -17, 41)] # 検出する色のしきい値を設定
 while(True):
+    #red_detect
     img = sensor.snapshot()           # 画像を取得
+    blobs = img.find_blobs(threshold_red) # しきい値内の色を検出
+    if blobs:
+        max_blob = max(blobs, key=lambda b: b.area()) # 面積が最大の領域を取得
+        max_per = max_blob.area()/76800
+        img.draw_rectangle(max_blob[0:4])             # 検出した色を矩形で囲む
+        img.draw_cross(max_blob[5], max_blob[6])# 検出した色の中心に十字を描く
+        sendstr = "$" +str(max_blob[5])+","+str(max_blob[6])+","+str(max_per)
+        for char in sendstr:
+            uart.write(char)
+        uart.write("\n")
+        print(max_blob[5], max_blob[6],max_per)
+    else:
+        sendstr = "$0,0,0.0"
+        for char in sendstr:
+            uart.write(char)
+        uart.write("\n")
+        print("0,0,0")
+    time.sleep(0.001)
+    #orange_detect
     blobs = img.find_blobs(threshold) # しきい値内の色を検出
     if blobs:
         max_blob = max(blobs, key=lambda b: b.area()) # 面積が最大の領域を取得
@@ -51,4 +74,31 @@ while(True):
             uart.write(char)
         uart.write("\n")
         print(max_blob[5], max_blob[6],max_per)
+    else:
+        sendstr = "$0,0,0.0"
+        for char in sendstr:
+            uart.write(char)
+        uart.write("\n")
+        print("0,0,0")
+    time.sleep(0.001)
+    #yellow_detect
+    blobs = img.find_blobs(threshold) # しきい値内の色を検出
+    if blobs:
+        max_blob = max(blobs, key=lambda b: b.area()) # 面積が最大の領域を取得
+        max_per = max_blob.area()/76800
+        img.draw_rectangle(max_blob[0:4])             # 検出した色を矩形で囲む
+        img.draw_cross(max_blob[5], max_blob[6])# 検出した色の中心に十字を描く
+        sendstr = "$" +str(max_blob[5])+","+str(max_blob[6])+","+str(max_per)
+        for char in sendstr:
+            uart.write(char)
+        uart.write("\n")
+        print(max_blob[5], max_blob[6],max_per)
+    else:
+        sendstr = "$0,0,0.0"
+        for char in sendstr:
+            uart.write(char)
+        uart.write("\n")
+        print("0,0,0")
+    time.sleep(0.001)
+
 

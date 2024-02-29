@@ -3,6 +3,7 @@
 #include <Arduino.h>
 #include <Wire.h>
 #include <SPI.h>
+#include "SD.h"
 #include <SoftwareSerial.h>
 //それ以外のライブラリ
 #include <Adafruit_Sensor.h>
@@ -21,13 +22,13 @@ double azidata[2] = {0,0};
 
 //gps setting
 //三鷹ファミマの緯度経度
-double goalGPSdata[2] = {35.70099, 139.56649};
+double goalGPSdata3[2] = {35.70099, 139.56649};
 //運河駅
 double goalGPSdata2[2] = {35.91435, 139.90586};
 //三鷹駅の緯度経度
 double goalGPSdata4[2] = {35.70279, 139.56110};
 //ゴールの緯度経度(作業場近くのセブン)
-double goalGPSdata3[2] = {35.71714,139.82320};
+double goalGPSdata[2] = {35.717167, 139.823181};
 //I2C communication parameters
 #define DEFAULT_DEVICE_ADDRESS 0x42
 //I2C read data structures
@@ -44,7 +45,10 @@ int camera_data[3];
 double camera_area_data = 0.0;
 
 //dcmoter setting
-#define Kp 0.65
+#define gpsTp 0.75
+#define gpsSp 120
+#define cameraTp 0.65
+#define cameraSp 0
 const int STBY = 17; // モータードライバの制御の準備
 const int AIN1 = 16; // 1つ目のDCモーターの制御
 const int AIN2 = 4; // 1つ目のDCモーターの制御
@@ -52,25 +56,31 @@ const int BIN1 = 5; // 2つ目のDCモーターの制御
 const int BIN2 = 18; // 2つ目のDCモーターの制御
 const int PWMA = 0; // 1つ目のDCモーターの回転速度
 const int PWMB = 19; // 2つ目のDCモーターの回転速度
-const int RESET_PIN = 23;
-const int fusePin = 2;  // 溶断回路の制御
+const int RESET_PIN = 15;
+const int fusePin = 23;  // 溶断回路の制御,今はダミー
+//led点灯用
+
 
 //SDcard setting
 const int SD_MOSI = 27;
 const int SD_MISO = 25;
 const int SD_SCK  = 26;
-const int SD_CS_PIN 14;
+const int SD_CS_PIN  = 14;
 File myFile;
 SPIClass SPISD(HSPI);
 
 //collect module setting
 const int  SERVO_PIN = 13;
 Servo servo;
-
-void SD_Init(){
+void ledmaker(int count){
+    for(int i = 0; i < count; i++)
+    digitalWrite(fusePin, HIGH); // 溶断回路を通電
+    delay(500);
+    digitalWrite(fusePin, LOW); // 
+    delay(500);
+}
+void SD_writing(){
   //  SPIClass SPI2(HSPI);
-
-
     SPISD.begin(SD_SCK, SD_MISO, SD_MOSI);
     if (!SD.begin(SD_CS_PIN,SPISD)) {  //SD_CS_PIN this pin is just the dummy pin since the SD need the input 
     Serial.println(F("failed!"));
@@ -153,7 +163,6 @@ void stop(){
     digitalWrite(BIN2, LOW);
 }
 
-
 //Read 80 bytes from I2C
 void readI2C(char *inBuff){
     Wire.requestFrom((uint8_t)DEFAULT_DEVICE_ADDRESS, (uint8_t) 80);
@@ -232,7 +241,106 @@ void GPS_data(){
           }
         }
       }
-    
+      //GLLならば緯度経度を取得する
+        if (c == '$' && idx < 40) {
+            if(buff[idx+2] == 'G'){
+                if(buff[idx+3] == 'L'){
+                    if(buff[idx+4] == 'L'){
+                        for(int i = 0; i < 4; i++){//NMEAフォーマット特有の表記を調整
+                            lat[i] = buff[idx+6+i];
+                        }
+                        for(int i = 0; i < 5; i++){
+                            //小数点は除外する
+                            lat[i + 4] = buff[idx+11+i];
+                        }
+                        for(int i = 0; i < 5; i++){//NMEAフォーマット特有の表記を調整
+                            lon[i] = buff[idx+19+i];
+                        }
+                        for(int i = 0; i < 5; i++){
+                            //小数点は除外する
+                            lon[i + 5] = buff[idx+25+i];
+                        }
+        
+                        String mlat = String(lat);
+                        Serial.println(mlat);
+                        Serial.println(mlat.substring(2,4).toDouble());
+                        Serial.println(mlat.substring(4,9).toDouble());
+                        Serial.println(mlat.substring(6,8).toDouble());
+                        double latitude = mlat.substring(0,2).toDouble() + mlat.substring(2,9).toDouble() / 60.0 / 100000.0;
+                        String mlon = String(lon);
+                        double longitude = mlon.substring(0,3).toDouble() + mlon.substring(3,10).toDouble() / 60.0 / 100000.0;
+                        double goaldirection  = 57.2957795131 * atan2(goalGPSdata[0] - latitude, goalGPSdata[1] - longitude);
+                        if(goaldirection > -90){
+                            goaldirection -= 90;
+                        }else{
+                            goaldirection += 270;
+                        }
+                        
+                        Serial.print("latitude: ");
+                        Serial.print(latitude,7);
+                        Serial.print("\tlongitude: ");
+                        Serial.println(longitude,7);
+                        
+                        delay(10);
+                        currentGPSdata[0] = latitude;
+                        currentGPSdata[1] = longitude;
+                        currentGPSdata[2] = goaldirection;
+                        break;
+                    
+                    }
+                }
+            }
+        }
+        //RMCならば緯度経度を取得する
+        if (c == '$' && idx < 40) {
+            if(buff[idx+2] == 'R'){
+                if(buff[idx+3] == 'M'){
+                    if(buff[idx+4] == 'C'){
+                        for(int i = 0; i < 4; i++){//NMEAフォーマット特有の表記を調整
+                            lat[i] = buff[idx+18+i];
+                        }
+                        for(int i = 0; i < 5; i++){
+                            //小数点は除外する
+                            lat[i + 4] = buff[idx+23+i];
+                        }
+                        for(int i = 0; i < 5; i++){//NMEAフォーマット特有の表記を調整
+                            lon[i] = buff[idx+31+i];
+                        }
+                        for(int i = 0; i < 5; i++){
+                            //小数点は除外する
+                            lon[i + 5] = buff[idx+37+i];
+                        }
+        
+                        String mlat = String(lat);
+                        Serial.println(mlat);
+                        Serial.println(mlat.substring(2,4).toDouble());
+                        Serial.println(mlat.substring(4,9).toDouble());
+                        Serial.println(mlat.substring(6,8).toDouble());
+                        double latitude = mlat.substring(0,2).toDouble() + mlat.substring(2,9).toDouble() / 60.0 / 100000.0;
+                        String mlon = String(lon);
+                        double longitude = mlon.substring(0,3).toDouble() + mlon.substring(3,10).toDouble() / 60.0 / 100000.0;
+                        double goaldirection  = 57.2957795131 * atan2(goalGPSdata[0] - latitude, goalGPSdata[1] - longitude);
+                        if(goaldirection > -90){
+                            goaldirection -= 90;
+                        }else{
+                            goaldirection += 270;
+                        }
+                        
+                        Serial.print("latitude: ");
+                        Serial.print(latitude,7);
+                        Serial.print("\tlongitude: ");
+                        Serial.println(longitude,7);
+                        
+                        delay(10);
+                        currentGPSdata[0] = latitude;
+                        currentGPSdata[1] = longitude;
+                        currentGPSdata[2] = goaldirection;
+                        break;
+                    
+                    }
+                }
+            }
+        }
     }
   }
 }
@@ -275,7 +383,8 @@ void Euler(){
 
 
 void stack(){
-    
+    if(eulerdata[0] > 88)
+    MoterControl(-255,-255);
 
     
 }
@@ -334,17 +443,17 @@ void P_GPS_Moter(){
     Serial.println("P_GPS_Moter");
     while(true){
         GetAzimuthDistance();
-        if(azidata[1] < 5){
+        if(azidata[1] < 20){
             break;
             }
         else{
             if(azidata[0] > 0){
-                PID_left = 240;
-                PID_right = 240 - Kp * azidata[0];
+                PID_left = gpsSp;
+                PID_right = gpsSp - gpsTp * azidata[0];
             }
             else{
-                PID_right = 240;
-                PID_left = 240 + Kp * azidata[0];
+                PID_right = gpsSp;
+                PID_left = gpsSp + gpsTp * azidata[0];
             }
             Serial.print("\tMoterpower : ");
             Serial.print(PID_left);
@@ -358,14 +467,26 @@ void P_GPS_Moter(){
 }
 void housyutu(){
     Serial.println("housyutu");
+    //横の状態を確認
     while (1){
         Euler();
         Serial.println(eulerdata[1]);
+        if (eulerdata[1] <= -45 || eulerdata[1] >= 45) {
+            delay(1000);
+            break;
+            }
+        else{
+            delay(1000);
+            }
+    }
+    while(1){
+        Euler();
+        Serial.println(eulerdata[1]);
         if (eulerdata[1] <= 45 && eulerdata[1] >= -45) {
-            delay(10000);
+            delay(1000);
             Serial.println("youdan");
             digitalWrite(fusePin, HIGH); // 溶断回路を通電
-            delay(5000);
+            delay(500);
             digitalWrite(fusePin, LOW); // 
             break;
             }
@@ -381,6 +502,7 @@ void split(String data){
     //文字列データの初期化
     pre_camera_data[0] = "";
     pre_camera_data[1] = "";
+    pre_camera_data[2] = "";
     for (int i = 0; i < 15; i++) {
         char tmp = data.charAt(i);
         if (tmp == '$') {
@@ -404,11 +526,15 @@ void split(String data){
 
         }
     }
+    String prebottom_area_data = String(pre_camera_data[2]);
+    Serial.println(prebottom_area_data);
+    String bottom_area_data = prebottom_area_data.substring(2,6);
+    Serial.println(bottom_area_data);
     //文字列リストを整数リストに変換
     for(int i = 0; i < 2; i++){
         camera_data[i] = pre_camera_data[i].toInt();
     }
-    camera_area_data = pre_camera_data[2].toDouble();
+    camera_area_data = bottom_area_data.toDouble() / 10000.0;
     Serial.println(camera_area_data);
     
     
@@ -442,8 +568,8 @@ void P_camera_Moter(){
                             Serial.print(camera_data[0]);delay(10);//シリアルモニタの表示がバグるので時間を置く、ここが変
                             Serial.print(",");delay(10);
                             Serial.println(camera_data[1]);delay(10);
-                            int PID2_left = 0.75 * (camera_data[0]-160) + 120;
-                            int PID2_right = 0.75 * (160 - camera_data[0]) + 120;
+                            int PID2_left = cameraTp * (camera_data[0]-160) + cameraSp;
+                            int PID2_right = cameraTp * (160 - camera_data[0]) + cameraSp;
                             MoterControl(PID2_left,PID2_right);
                             Serial.print("\tMoterControl: ");delay(10);
                             Serial.print(PID2_left);delay(10);
@@ -539,12 +665,17 @@ void loop() {
     //release sequence
     Serial.println("release sequence start");
     delay(100);
-    //housyutu();
+    housyutu();
+
+    ledmaker(2);
     //go straight
-    MoterControl(200,200);
-    delay(1000);
+    for(int i = 0; i < 10; i++){
+        MoterControl(10 * i,10 * i);
+        delay(500);
+    }
     stop();
     P_GPS_Moter();
+    ledmaker(2);
     //アーム展開
     Serial.println("camera sequence start");
     P_camera_Moter();

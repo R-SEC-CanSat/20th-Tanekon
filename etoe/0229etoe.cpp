@@ -3,6 +3,7 @@
 #include <Arduino.h>
 #include <Wire.h>
 #include <SPI.h>
+#include "SD.h"
 #include <SoftwareSerial.h>
 //それ以外のライブラリ
 #include <Adafruit_Sensor.h>
@@ -52,14 +53,16 @@ const int BIN1 = 5; // 2つ目のDCモーターの制御
 const int BIN2 = 18; // 2つ目のDCモーターの制御
 const int PWMA = 0; // 1つ目のDCモーターの回転速度
 const int PWMB = 19; // 2つ目のDCモーターの回転速度
-const int RESET_PIN = 23;
-const int fusePin = 2;  // 溶断回路の制御
+const int RESET_PIN = 15;
+const int fusePin = 23;  // 溶断回路の制御,今はダミー
+//led点灯用
+const int ledPin = 23;
 
 //SDcard setting
 const int SD_MOSI = 27;
 const int SD_MISO = 25;
 const int SD_SCK  = 26;
-const int SD_CS_PIN 14;
+const int SD_CS_PIN  = 14;
 File myFile;
 SPIClass SPISD(HSPI);
 
@@ -152,7 +155,6 @@ void stop(){
     digitalWrite(BIN1, LOW);
     digitalWrite(BIN2, LOW);
 }
-
 
 //Read 80 bytes from I2C
 void readI2C(char *inBuff){
@@ -275,7 +277,8 @@ void Euler(){
 
 
 void stack(){
-    
+    if(eulerdata[0] > 88)
+    MoterControl(-255,-255);
 
     
 }
@@ -358,14 +361,24 @@ void P_GPS_Moter(){
 }
 void housyutu(){
     Serial.println("housyutu");
+    //横の状態を確認
     while (1){
         Euler();
         Serial.println(eulerdata[1]);
+        if (eulerdata[1] <= -45 && eulerdata[1] >= 45) {
+            delay(1000);
+            break;
+            }
+        else{
+            delay(1000);
+            }
+    }
+    while(1){
         if (eulerdata[1] <= 45 && eulerdata[1] >= -45) {
-            delay(10000);
+            delay(1000);
             Serial.println("youdan");
             digitalWrite(fusePin, HIGH); // 溶断回路を通電
-            delay(5000);
+            delay(500);
             digitalWrite(fusePin, LOW); // 
             break;
             }
@@ -381,6 +394,7 @@ void split(String data){
     //文字列データの初期化
     pre_camera_data[0] = "";
     pre_camera_data[1] = "";
+    pre_camera_data[2] = "";
     for (int i = 0; i < 15; i++) {
         char tmp = data.charAt(i);
         if (tmp == '$') {
@@ -404,11 +418,15 @@ void split(String data){
 
         }
     }
+    String prebottom_area_data = String(pre_camera_data[2]);
+    Serial.println(prebottom_area_data);
+    String bottom_area_data = prebottom_area_data.substring(2,6);
+    Serial.println(bottom_area_data);
     //文字列リストを整数リストに変換
     for(int i = 0; i < 2; i++){
         camera_data[i] = pre_camera_data[i].toInt();
     }
-    camera_area_data = pre_camera_data[2].toDouble();
+    camera_area_data = bottom_area_data.toDouble() / 10000.0;
     Serial.println(camera_area_data);
     
     
@@ -539,7 +557,7 @@ void loop() {
     //release sequence
     Serial.println("release sequence start");
     delay(100);
-    //housyutu();
+    housyutu();
     //go straight
     MoterControl(200,200);
     delay(1000);

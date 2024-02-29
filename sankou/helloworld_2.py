@@ -36,9 +36,10 @@ sensor.set_auto_gain(False)         # オートゲインをオフ
 sensor.__write_reg(0x80, 0xEF)      # オートホワイトバランスをオフ
 sensor.skip_frames(time = 2000)     # 2秒間フレームをスキップして安定化
 
-threshold = [(7, 100, 16, 127, -33, 127)] # 検出する色のしきい値を設定
+threshold = [(27, 100, 23, 127, -17, 41)] # 検出する色のしきい値を設定
 
 while(True):
+    #red_detect
     img = sensor.snapshot()           # 画像を取得
     blobs = img.find_blobs(threshold) # しきい値内の色を検出
     if blobs:
@@ -58,5 +59,6 @@ while(True):
         uart.write("\n")
         print("0,0,0")
     time.sleep(0.001)
+    #orange_detect
 
 
