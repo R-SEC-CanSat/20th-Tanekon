@@ -41,9 +41,12 @@ int PID_right;
 
 //camera setting
 SoftwareSerial mySerial;
-String pre_camera_data[3];
-int camera_data[3];
-double camera_area_data = 0.0;
+String pre_camera_data[9];
+int camera_data[9];
+double camera_area_data1 = 0.0;
+double camera_area_data2 = 0.0;
+double camera_area_data3 = 0.0;
+
 
 //dcmoter setting
 #define gpsTp 0.75
@@ -584,6 +587,7 @@ void split(String data){
     pre_camera_data[0] = "";
     pre_camera_data[1] = "";
     pre_camera_data[2] = "";
+    pre_camera_data[3] = "";
     for (int i = 0; i < 15; i++) {
         char tmp = data.charAt(i);
         if (tmp == '$') {
@@ -621,7 +625,7 @@ void split(String data){
     
 }
 void P_camera_Moter(){
-    char buff[255];
+    char buff[50];
     int counter = 0;
     while(1){//カメラによる制御のためのループ
         while (mySerial.available()) { // 同期のためにデータをすべて一旦破棄する
@@ -630,8 +634,8 @@ void P_camera_Moter(){
         delay(1);
         if(mySerial.available()>0){
             char val = char(mySerial.read());
-            if (val == '$') {
-                buff[0] = '$';
+            if (val == 'R') {
+                buff[0] = 'R';
                 counter++; 
                 while(1){//カメラからのシリアル通信によるデータを受け取るためのループ、あとでデータが読めなかった場合の例外を追加する
                     if(mySerial.available()>0){
@@ -639,7 +643,7 @@ void P_camera_Moter(){
                         buff[counter] = nextval;//x軸、y軸、面積のデータを格納
                         counter++;  
                         //二個目のメッセージであるかを判断
-                        if (counter == 15){
+                        if (counter == 50){
                             Serial.println(buff);
                             //文字列を整数リストに変換
                             split(buff);
@@ -682,7 +686,44 @@ void gpsHardwareReset()
   delay(2000);
 
 }
-
+void missionready(){
+    double inilat[5];
+    double inilon[5];
+    //highly
+    for(int i = 0; i < 25; i++){
+        MoterControl(10 * i,10 * i);
+        delay(500);
+    }
+    //slowly
+    for(int i = 0; i < 25; i++){
+        MoterControl(250 - 10 * i,250 - 10 * i);
+        delay(500);
+    }
+    stop();
+    GPS_data();
+    for(int i = 0; i < 5; i++){
+        GPS_data();
+        inilat[i] = currentGPSdata[0];
+        inilon[i] = currentGPSdata[1];
+    }  
+    setGPSdata[0] = (inilat[0] + inilat[1] + inilat[2] + inilat[3] + inilat[4]) / 5;
+    setGPSdata[1] = (inilon[0] + inilon[1] + inilon[2] + inilon[3] + inilon[4]) / 5;
+    Serial.println("Setting!!!");
+    Serial.print("latitude: ");
+    Serial.print(setGPSdata[0],7);
+    Serial.print("\tlongitude: ");
+    Serial.println(setGPSdata[1],7);
+    setting();
+    //back and turn left
+    for(int i = 0; i < 25; i++){
+        MoterControl(-10 * i,-10 * i);
+        delay(500);
+    }
+    for(int i = 0; i < 25; i++){
+        MoterControl(-250 + 10 * i,-250 + 10 * i);
+        delay(500);
+    }
+}
 
 void setup() {
     //serial setting
@@ -743,42 +784,7 @@ void setup() {
     }
     while ((uint8_t) c != 0xFF);
 }
-void missionready(){
-    //highly
-    for(int i = 0; i < 25; i++){
-        MoterControl(10 * i,10 * i);
-        delay(500);
-    }
-    //slowly
-    for(int i = 0; i < 25; i++){
-        MoterControl(250 - 10 * i,250 - 10 * i);
-        delay(500);
-    }
-    stop();
-    GPS_data();
-    for(int i = 0; i < 5; i++){
-        GPS_data();
-        inilat[i] = currentGPSdata[0];
-        inilon[i] = currentGPSdata[1];
-    }  
-    setGPSdata[0] = (inilate[0] + inilate[1] + inilate[2] + inilate[3] + inilate[4]) / 5;
-    setGPSdata[1] = (inilon[0] + inilon[1] + inilon[2] + inilon[3] + inilon[4]) / 5;
-    Serial.println("Setting!!!");
-    Serial.print("latitude: ");
-    Serial.print(setGPSdata[0],7);
-    Serial.print("\tlongitude: ");
-    Serial.println(setGPSdata[1],7);
-    setting();
-    //back and turn left
-    for(int i = 0; i < 25; i++){
-        MoterControl(-10 * i,-10 * i);
-        delay(500);
-    }
-    for(int i = 0; i < 25; i++){
-        MoterControl(-250 + 10 * i,-250 + 10 * i);
-        delay(500);
-    }
-}
+
 void loop() {
     //release sequence
     Serial.println("release sequence start");
