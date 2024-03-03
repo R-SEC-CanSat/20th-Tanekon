@@ -16,6 +16,7 @@
 //BNO055 setting
 Adafruit_BNO055 bno = Adafruit_BNO055(55, 0x28, &Wire);
 
+double setGPSdata[2] = {0,0};
 double currentGPSdata[3] = {0,0,0};
 double eulerdata[3] = {0,0,0};
 double azidata[2] = {0,0};
@@ -66,7 +67,10 @@ const int SD_MOSI = 27;
 const int SD_MISO = 25;
 const int SD_SCK  = 26;
 const int SD_CS_PIN  = 14;
-File myFile;
+
+File mainFile;
+File subFile;
+
 SPIClass SPISD(HSPI);
 
 //collect module setting
@@ -87,19 +91,28 @@ void SD_init(){
     return;
     }
     else Serial.println(F("SD read!"));
-    myFile = SD.open("/test.txt", "a"); //append to file
-    
-  if (myFile)
-  {
+    mainFile = SD.open("/main.txt", "a"); //append to file
+    subFile = SD.open("/sub.txt", "a"); 
+  if (mainFile){
     Serial.print("Writing to test.txt...");
     myFile.println("testing 1, 2, 3.");
     myFile.close();
     Serial.println("done.");
   }
-  else
-  {
+  else{
     Serial.println("error opening test.txt to write");
   }
+  if (subFile){
+    Serial.print("Writing to test.txt...");
+    myFile.println("testing 1, 2, 3.");
+    myFile.close();
+    Serial.println("done.");
+  }
+  else{
+    Serial.println("error opening test.txt to write");
+  }
+
+  /*
   myFile = SD.open("/test.txt", "r"); //read from file
   if (myFile)
   {
@@ -116,6 +129,7 @@ void SD_init(){
   {
     Serial.println("error opening test.txt to read");
   }
+  */
 }
 
 //左右の回転速度を0基準に設定(v∈[-255,255])
@@ -311,7 +325,7 @@ void GPS_data(){
                             //小数点は除外する
                             lon[i + 5] = buff[idx+37+i];
                         }
-        
+
                         String mlat = String(lat);
                         Serial.println(mlat);
                         Serial.println(mlat.substring(2,4).toDouble());
@@ -326,7 +340,6 @@ void GPS_data(){
                         }else{
                             goaldirection += 270;
                         }
-                        
                         Serial.print("latitude: ");
                         Serial.print(latitude,7);
                         Serial.print("\tlongitude: ");
@@ -379,17 +392,34 @@ void Euler(){
 
     eulerdata[0] = roll;
     eulerdata[1] = pitch;
-    eulerdata[2] = yaw;
+    //オイラー角の値を調整
+    eulerdata[2] = yaw -22;
 }
 
 
 void stack(){
-    if(eulerdata[0] > 88)
+    if(eulerdata[0] > 88){
     MoterControl(-255,-255);
-
-    
+    delay(1000);
+    stop();
+    }
 }
 
+void parakaihi(){
+
+
+}
+
+void kaishuu(){
+
+
+
+
+}
+void setting(){
+
+
+}
 double distanceBetween(double lat1, double long1, double lat2, double long2){
     // returns distance in meters between two positions, both specified
     // as signed decimal-degrees latitude and longitude. Uses great-circle
@@ -440,10 +470,23 @@ void GetAzimuthDistance(){
 }
 
 //GPSとオイラー角から右回転を正として回転量を出す
+//移動平均法を用いる
 void P_GPS_Moter(){ 
+    double lat_data[5];
+    double lon_data[5];
+    double dit_data[5];
     Serial.println("P_GPS_Moter");
-    while(true){
+    for(int i = 0; i < 5; i++){
         GetAzimuthDistance();
+        lat_data[i] = azidata[0];
+        lon_data[i] = azidata[1];
+        dit_data[i] = azidata[2];
+        
+        double ave_lat = (lat_data[0] + lat_data[1] + lat_data[2] + lat_data[3] + lat_data[4]) / 5;
+        double ave_lon = (lon_data[0] + lon_data[1] + lon_data[2] + lon_data[3] + lon_data[4]) / 5;
+        double ave_dit = (dit_data[0] + dit_data[1] + dit_data[2] + dit_data[3] + dit_data[4]) / 5;
+    }
+    while(true){
         if(azidata[1] < 20){
             break;
             }
@@ -464,6 +507,7 @@ void P_GPS_Moter(){
             delay(250);
             
         } 
+        
     }
 }
 void housyutu(){
@@ -646,6 +690,8 @@ void setup() {
     }
     delay(100);
 
+    //SDcard setting
+    SD_init();
     //clear i2c buffer
     char c;
     idx = 0;
@@ -661,20 +707,29 @@ void setup() {
     }
     while ((uint8_t) c != 0xFF);
 }
+void missionready(){
+    //highly
+    for(int i = 0; i < 25; i++){
+        MoterControl(10 * i,10 * i);
+        delay(500);
+    }
+    //slowly
+    for(int i = 0; i < 25; i++){
+        MoterControl(250 - 10 * i,250 - 10 * i);
+        delay(500);
+    }
+    stop();
+    GPS_data();
+    setGPSdata[0] = currentGPSdata[0];
+    setGPSdata[1] = currentGPSdata[1];
 
+}
 void loop() {
     //release sequence
     Serial.println("release sequence start");
     delay(100);
     housyutu();
-
-    ledmaker(2);
-    //go straight
-    for(int i = 0; i < 10; i++){
-        MoterControl(10 * i,10 * i);
-        delay(500);
-    }
-    stop();
+    missionready();
     P_GPS_Moter();
     ledmaker(2);
     //アーム展開

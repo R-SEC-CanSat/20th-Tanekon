@@ -36,7 +36,7 @@ sensor.set_auto_gain(False)         # オートゲインをオフ
 sensor.__write_reg(0x80, 0xEF)      # オートホワイトバランスをオフ
 sensor.skip_frames(time = 2000)     # 2秒間フレームをスキップして安定化
 
-threshold = [(27, 100, 23, 127, -17, 41)] # 検出する色のしきい値を設定
+threshold = [(41, 95, 0, 37, -20, 76)] # 検出する色のしきい値を設定
 
 while(True):
     #red_detect

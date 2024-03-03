@@ -36,69 +36,43 @@ sensor.set_auto_gain(False)         # オートゲインをオフ
 sensor.__write_reg(0x80, 0xEF)      # オートホワイトバランスをオフ
 sensor.skip_frames(time = 2000)     # 2秒間フレームをスキップして安定化
 
+#red
 threshold_red = [(27, 100, 23, 127, -17, 41)] # 検出する色のしきい値を設定
-#オレンジ
+#orange
 threshold_orange = [(41, 95, -2, 37, -20, 41)] # 検出する色のしきい値を設定
 #yellow
 threshold_yellow = [(27, 100, 23, 127, -17, 41)] # 検出する色のしきい値を設定
+
 while(True):
     #red_detect
     img = sensor.snapshot()           # 画像を取得
-    blobs = img.find_blobs(threshold_red) # しきい値内の色を検出
-    if blobs:
-        max_blob = max(blobs, key=lambda b: b.area()) # 面積が最大の領域を取得
-        max_per = max_blob.area()/76800
-        img.draw_rectangle(max_blob[0:4])             # 検出した色を矩形で囲む
-        img.draw_cross(max_blob[5], max_blob[6])# 検出した色の中心に十字を描く
-        sendstr = "$" +str(max_blob[5])+","+str(max_blob[6])+","+str(max_per)
+    blobs_red = img.find_blobs(threshold_red) # しきい値内の色を検出
+    blobs_ore = img.find_blobs(threshold_orange) # しきい値内の色を検出
+    blobs_yellow = img.find_blobs(threshold_yellow) # しきい値内の色を検出
+    if blobs_red and blobs_ore and blobs_yellow :
+        max_blob_red = max(blobs_red, key=lambda b: b.area()) # 面積が最大の領域を取得
+        max_blob_ore = max(blobs_ore, key=lambda b: b.area()) # 面積が最大の領域を取得
+        max_blob_ye = max(blobs_yellow, key=lambda b: b.area()) # 面積が最大の領域を取得
+        max_per_red = max_blob_red.area()/76800
+        max_per_ore = max_blob_ore.area()/76800
+        max_per_ye = max_blob_ye.area()/76800
+        img.draw_rectangle(max_blob_red[0:4])             # 検出した色を矩形で囲む
+        img.draw_cross(max_blob_red[5], max_blob_red[6])# 検出した色の中心に十字を描く
+        img.draw_rectangle(max_blob_red[0:4])             # 検出した色を矩形で囲む
+        img.draw_cross(max_blob_red[5], max_blob_red[6])# 検出した色の中心に十字を描く
+        img.draw_rectangle(max_blob_red[0:4]) # 検出した色を矩形で囲む
+        img.draw_cross(max_blob_red[5], max_blob_red[6]) # 検出した色の中心に十字を描く
+        sendstr = "R:" + str(max_blob_red[5])+","+str(max_blob_red[6])+","+str(max_per_red) +
         for char in sendstr:
             uart.write(char)
         uart.write("\n")
-        print(max_blob[5], max_blob[6],max_per)
+        print(max_blob_red[5], max_blob_red[6],max_per)
     else:
-        sendstr = "$0,0,0.0"
+        sendstr = "R:0,0,0.0"
         for char in sendstr:
             uart.write(char)
         uart.write("\n")
         print("0,0,0")
     time.sleep(0.001)
-    #orange_detect
-    blobs = img.find_blobs(threshold) # しきい値内の色を検出
-    if blobs:
-        max_blob = max(blobs, key=lambda b: b.area()) # 面積が最大の領域を取得
-        max_per = max_blob.area()/76800
-        img.draw_rectangle(max_blob[0:4])             # 検出した色を矩形で囲む
-        img.draw_cross(max_blob[5], max_blob[6])# 検出した色の中心に十字を描く
-        sendstr = "$" +str(max_blob[5])+","+str(max_blob[6])+","+str(max_per)
-        for char in sendstr:
-            uart.write(char)
-        uart.write("\n")
-        print(max_blob[5], max_blob[6],max_per)
-    else:
-        sendstr = "$0,0,0.0"
-        for char in sendstr:
-            uart.write(char)
-        uart.write("\n")
-        print("0,0,0")
-    time.sleep(0.001)
-    #yellow_detect
-    blobs = img.find_blobs(threshold) # しきい値内の色を検出
-    if blobs:
-        max_blob = max(blobs, key=lambda b: b.area()) # 面積が最大の領域を取得
-        max_per = max_blob.area()/76800
-        img.draw_rectangle(max_blob[0:4])             # 検出した色を矩形で囲む
-        img.draw_cross(max_blob[5], max_blob[6])# 検出した色の中心に十字を描く
-        sendstr = "$" +str(max_blob[5])+","+str(max_blob[6])+","+str(max_per)
-        for char in sendstr:
-            uart.write(char)
-        uart.write("\n")
-        print(max_blob[5], max_blob[6],max_per)
-    else:
-        sendstr = "$0,0,0.0"
-        for char in sendstr:
-            uart.write(char)
-        uart.write("\n")
-        print("0,0,0")
-    time.sleep(0.001)
-
+    
 
