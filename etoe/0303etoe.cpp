@@ -497,7 +497,7 @@ void P_GPS_Moter(){
         dit_data[4] = azidata[2];
         ave_turn = (turn_data[0] + turn_data[1] + turn_data[2] + turn_data[3] + turn_data[4]) / 5;
         ave_dit = (dit_data[0] + dit_data[1] + dit_data[2] + dit_data[3] + dit_data[4]) / 5;
-        if(ave_dit < 15){
+        if(ave_dit < 20){
             break;
         }
         else{
