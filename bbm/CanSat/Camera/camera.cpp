@@ -42,8 +42,7 @@ void camera_value(){
     }
     
   }
-  
-  
+
   
 
 }

@@ -83,6 +83,7 @@ void ledmaker(int count){
     digitalWrite(fusePin, LOW); // 
     delay(500);
 }
+/*
 void SD_init(){
   //  SPIClass SPI2(HSPI);
     SPISD.begin(SD_SCK, SD_MISO, SD_MOSI);
@@ -91,26 +92,52 @@ void SD_init(){
     return;
     }
     else Serial.println(F("SD read!"));
-    mainFile = SD.open("/main.txt", "a"); //append to file
-    subFile = SD.open("/sub.txt", "a"); 
-  if (mainFile){
-    Serial.print("Writing to test.txt...");
-    myFile.println("testing 1, 2, 3.");
-    myFile.close();
-    Serial.println("done.");
-  }
-  else{
-    Serial.println("error opening test.txt to write");
-  }
-  if (subFile){
-    Serial.print("Writing to test.txt...");
-    myFile.println("testing 1, 2, 3.");
-    myFile.close();
-    Serial.println("done.");
-  }
-  else{
-    Serial.println("error opening test.txt to write");
-  }
+
+    // ファイル名決定
+    String s1;
+    String s2;
+
+    while(1){
+        s1 = "MAIN";
+        s2 = "SUB";
+        if (fileNum < 10) {
+            s1 += "00";
+            s2 += "00";
+        }else if(fileNum < 100) {
+            s1 += "0";
+            s2 += "0";
+        }
+        s1 += fileNum;
+        s2 += fileNum;
+        s1 += ".TXT";
+        s2 += ".TXT";
+        s1.toCharArray(mainName, 16);
+        s2.toCharArray(subName, 16);
+        if(!SD.exists(mainName)) break;
+        fileNum++;
+    }
+
+
+    mainFile = SD.open(mainName, FILE_WRITE); //append to file
+    subFile = SD.open(subName, FILE_WRITE); 
+    if (mainFile){
+        Serial.print("Writing to test.txt...");
+        mainFile.println("testing 1, 2, 3.");
+        mainFile.close();
+        Serial.println("done.");
+    }
+    else{
+        Serial.println("error opening test.txt to write");
+    }
+    if (subFile){
+        Serial.print("Writing to test.txt...");
+        subFile.println("testing 1, 2, 3.");
+        subFile.close();
+        Serial.println("done.");
+    }
+    else{
+        Serial.println("error opening test.txt to write");
+    }
 
   /*
   myFile = SD.open("/test.txt", "r"); //read from file
@@ -129,9 +156,9 @@ void SD_init(){
   {
     Serial.println("error opening test.txt to read");
   }
-  */
+  
 }
-
+*/
 //左右の回転速度を0基準に設定(v∈[-255,255])
 void MoterControl( int left,int right) {
     int absleft = abs(left);
@@ -478,7 +505,7 @@ void P_GPS_Moter(){
     for(int i = 0; i < 5; i++){
         GetAzimuthDistance();
         turn_data[i] = azidata[0];
-        dit_data[i] = azidata[2];
+        dit_data[i] = azidata[1];
     }  
     double ave_turn = (turn_data[0] + turn_data[1] + turn_data[2] + turn_data[3] + turn_data[4]) / 5;
     double ave_dit = (dit_data[0] + dit_data[1] + dit_data[2] + dit_data[3] + dit_data[4]) / 5;
@@ -700,7 +727,7 @@ void setup() {
     delay(100);
 
     //SDcard setting
-    SD_init();
+    //SD_init();
     //clear i2c buffer
     char c;
     idx = 0;
@@ -729,9 +756,28 @@ void missionready(){
     }
     stop();
     GPS_data();
-    setGPSdata[0] = currentGPSdata[0];
-    setGPSdata[1] = currentGPSdata[1];
-
+    for(int i = 0; i < 5; i++){
+        GPS_data();
+        inilat[i] = currentGPSdata[0];
+        inilon[i] = currentGPSdata[1];
+    }  
+    setGPSdata[0] = (inilate[0] + inilate[1] + inilate[2] + inilate[3] + inilate[4]) / 5;
+    setGPSdata[1] = (inilon[0] + inilon[1] + inilon[2] + inilon[3] + inilon[4]) / 5;
+    Serial.println("Setting!!!");
+    Serial.print("latitude: ");
+    Serial.print(setGPSdata[0],7);
+    Serial.print("\tlongitude: ");
+    Serial.println(setGPSdata[1],7);
+    setting();
+    //back and turn left
+    for(int i = 0; i < 25; i++){
+        MoterControl(-10 * i,-10 * i);
+        delay(500);
+    }
+    for(int i = 0; i < 25; i++){
+        MoterControl(-250 + 10 * i,-250 + 10 * i);
+        delay(500);
+    }
 }
 void loop() {
     //release sequence
