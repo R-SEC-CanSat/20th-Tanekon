@@ -79,13 +79,6 @@ char subName[16];
 Servo servo1;
 Servo servo2;
 Servo servo3;
-void ledmaker(int count){
-    for(int i = 0; i < count; i++)
-    digitalWrite(fusePin, HIGH); // 溶断回路を通電
-    delay(500);
-    digitalWrite(fusePin, LOW); // 
-    delay(500);
-}
 
 void SD_init(){
   //  SPIClass SPI2(HSPI);
@@ -496,21 +489,16 @@ void P_GPS_Moter(double goallat2, double goallon2){
     }  
     double ave_turn = (turn_data[0] + turn_data[1] + turn_data[2] + turn_data[3] + turn_data[4]) / 5;
     double ave_dit = (dit_data[0] + dit_data[1] + dit_data[2] + dit_data[3] + dit_data[4]) / 5;
-
+    softwareFilter<double> turn_data(5);
+    softwareFilter<double> dit_data(5);
     while(true){
         GetAzimuthDistance(goallat2, goallon2);
-        turn_data[0] = turn_data[1];
-        turn_data[1] = turn_data[2];
-        turn_data[2] = turn_data[3];
-        turn_data[3] = turn_data[4];
-        turn_data[4] = azidata[0];
-        dit_data[0] = dit_data[1];
-        dit_data[1] = dit_data[2];
-        dit_data[2] = dit_data[3];
-        dit_data[3] = dit_data[4];
-        dit_data[4] = azidata[2];
-        ave_turn = (turn_data[0] + turn_data[1] + turn_data[2] + turn_data[3] + turn_data[4]) / 5;
-        ave_dit = (dit_data[0] + dit_data[1] + dit_data[2] + dit_data[3] + dit_data[4]) / 5;
+        //回転力を更新
+        turn_data.dataAdd(azidata[0]);
+        //距離を更新
+        dit_data.dataAdd(azidata[1]);
+        double ave_turn = turn_data.filter();
+        double ave_dit = dit_data.filter();
         if(ave_dit < 20){
             break;
         }
@@ -619,9 +607,12 @@ void P_camera_Moter(int colornumber){
     char buff[50];
     int counter = 0;
     while(1){//カメラによる制御のためのループ
-        while (Serial2.available()) { // 同期のためにデータをすべて一旦破棄する
+      
+        if(Serial2.available()){ // 同期のためにデータをすべて一旦破棄する
             Serial2.flush();
+            Serial.println("serial2 flush");
         }
+        
         delay(1);
         if(Serial2.available()>0){
             char val = char(Serial2.read());
@@ -746,7 +737,8 @@ void loop() {
     delay(100);
     //housyutu();
     //missionready();
-    //P_GPS_Moter(goalGPSdata[0],goalGPSdata[1]);
+    Serial.println("gps sequence start");
+    P_GPS_Moter(goalGPSdata[0],goalGPSdata[1]);
     //ledmaker(2);
     //アーム展開
     Serial.println("camera sequence start");
