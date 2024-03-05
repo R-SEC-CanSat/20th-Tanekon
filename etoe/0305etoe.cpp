@@ -627,14 +627,14 @@ void P_camera_Moter(int colornumber){
             char val = char(Serial2.read());
             if (val == 'R') {
                 buff[0] = 'R';
-                counter++; 
+                counter++;
                 while(1){//カメラからのシリアル通信によるデータを受け取るためのループ、あとでデータが読めなかった場合の例外を追加する
                     if(Serial2.available()>0){
                         char nextval = char(Serial2.read());
                         buff[counter] = nextval;//x軸、y軸、面積のデータを格納
                         counter++;  
                         //二個目のメッセージであるかを判断
-                        if (counter == 50){
+                        if (counter == 15){
                             Serial.println(buff);
                             //文字列を整数リストに変換
                             split(buff, colornumber);
@@ -725,24 +725,6 @@ void setup() {
     // 速度、RX、TX、?、?、バッファ
     Serial2.begin(57600);
     Serial.println("Starting ...");
-    
-    //i2c setting
-    Wire.begin(21,22);
-    delay(100);
-
-    //moter setting
-    pinMode(AIN1, OUTPUT);
-    pinMode(AIN2, OUTPUT);
-    pinMode(BIN1, OUTPUT);
-    pinMode(BIN2, OUTPUT);
-    digitalWrite(STBY, HIGH);
-    // スタンバイ
-    pinMode(STBY, OUTPUT);
-    pinMode(PWMA, OUTPUT);
-    pinMode(PWMB, OUTPUT);
-    pinMode(fusePin, OUTPUT);
-    digitalWrite(fusePin, LOW); // 溶断回路を通電
-
     //gps hardware reset
     Serial.println("Resetting GPS module ...");
     //gpsHardwareReset();
@@ -756,32 +738,6 @@ void setup() {
     servo2.write(0);
     servo3.write(90);
 
-    //BNO055関連
-    delay(1000);
-    bool status = bno.begin();
-    if (!bno.begin()){
-        /* There was a problem detecting the BNO055 ... check your connections */
-        Serial.print("Ooops, no BNO055 detected ... Check your wiring or I2C ADDR!");
-        while (1);
-    }
-    delay(100);
-
-    //SDcard setting
-    SD_init();
-    //clear i2c buffer
-    char c;
-    idx = 0;
-    memset(buff, 0, 80);
-    do {
-    if (idx == 0) {
-        readI2C(buff);
-        delay(1);
-    }
-    c = buff[idx];
-    idx++;
-    idx %= 80;
-    }
-    while ((uint8_t) c != 0xFF);
 }
 
 void loop() {
@@ -795,11 +751,11 @@ void loop() {
     //アーム展開
     Serial.println("camera sequence start");
     P_camera_Moter(1);
-    P_GPS_Moter(setGPSdata[0],setGPSdata[1]);
+    //P_GPS_Moter(setGPSdata[0],setGPSdata[1]);
     P_camera_Moter(2);
     kaishuu();
-    P_GPS_Moter(goalGPSdata[0],goalGPSdata[1]);
-    P_camera_Moter(1);
+    //P_GPS_Moter(goalGPSdata[0],goalGPSdata[1]);
+    //P_camera_Moter(1);
     //delay(1000);
     delay(9999999);
     // put your main code here, to run repeatedly:

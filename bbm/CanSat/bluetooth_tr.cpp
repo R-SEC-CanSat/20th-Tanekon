@@ -29,23 +29,10 @@ void setup() {
   }
   // this would reconnect to the name(will use address, if resolved) or address used with connect(name/address).
   SerialBT.connect();
-
-  pinMode( 2, OUTPUT);
-  pinMode(14, INPUT_PULLUP);
-
-  // Sign for the end of bluetooth setup.
-  for (int i=0; i<3; i++) {
-    digitalWrite(2, HIGH);
-    delay(50);
-    digitalWrite(2, LOW);
-    delay(50);
-  }
 }
 
 void loop() {
-  if (digitalRead(14) == LOW) {
-    Serial.println("LED is ON.");
     SerialBT.write('T');
-  }
+  
   delay(20);
 }

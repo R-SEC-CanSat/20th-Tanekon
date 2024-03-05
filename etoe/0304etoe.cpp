@@ -40,9 +40,13 @@ int PID_left;
 int PID_right;
 
 //camera setting
+SoftwareSerial mySerial;
 String pre_camera_data[9];
 int camera_data[9];
-double camera_area_data = 0.0;
+double camera_area_data1 = 0.0;
+double camera_area_data2 = 0.0;
+double camera_area_data3 = 0.0;
+
 
 //dcmoter setting
 #define gpsTp 0.75
@@ -50,35 +54,31 @@ double camera_area_data = 0.0;
 #define cameraTp 0.65
 #define cameraSp 0
 const int STBY = 17; // モータードライバの制御の準備
-const int AIN1 = 13; // 1つ目のDCモーターの制御
-const int AIN2 = 27; // 1つ目のDCモーターの制御
-const int BIN1 = 4; // 2つ目のDCモーターの制御
-const int BIN2 = 2; // 2つ目のDCモーターの制御
-const int PWMA = 12; // 1つ目のDCモーターの回転速度
-const int PWMB = 15; // 2つ目のDCモーターの回転速度
-const int fusePin = 14;  // 溶断回路の制御,今はダミー
-const int s1 = 25;
-const int s2 = 33;
-const int s3 = 32; 
+const int AIN1 = 16; // 1つ目のDCモーターの制御
+const int AIN2 = 4; // 1つ目のDCモーターの制御
+const int BIN1 = 5; // 2つ目のDCモーターの制御
+const int BIN2 = 18; // 2つ目のDCモーターの制御
+const int PWMA = 0; // 1つ目のDCモーターの回転速度
+const int PWMB = 19; // 2つ目のDCモーターの回転速度
+const int RESET_PIN = 15;
+const int fusePin = 23;  // 溶断回路の制御,今はダミー
 //led点灯用
 
 
 //SDcard setting
-const int SD_MOSI = 23;
-const int SD_MISO = 19;
-const int SD_SCK  = 18;
-const int SD_CS_PIN  = 5;
+const int SD_MOSI = 27;
+const int SD_MISO = 25;
+const int SD_SCK  = 26;
+const int SD_CS_PIN  = 14;
 
 File mainFile;
 File subFile;
-int fileNum;
-char mainName[16];
-char subName[16];
+
+SPIClass SPISD(HSPI);
 
 //collect module setting
-Servo servo1;
-Servo servo2;
-Servo servo3;
+const int  SERVO_PIN = 13;
+Servo servo;
 void ledmaker(int count){
     for(int i = 0; i < count; i++)
     digitalWrite(fusePin, HIGH); // 溶断回路を通電
@@ -86,11 +86,11 @@ void ledmaker(int count){
     digitalWrite(fusePin, LOW); // 
     delay(500);
 }
-
+/*
 void SD_init(){
   //  SPIClass SPI2(HSPI);
-    //SPISD.begin(SD_SCK, SD_MISO, SD_MOSI);
-    if (!SD.begin()) {  //SD_CS_PIN this pin is just the dummy pin since the SD need the input 
+    SPISD.begin(SD_SCK, SD_MISO, SD_MOSI);
+    if (!SD.begin(SD_CS_PIN,SPISD)) {  //SD_CS_PIN this pin is just the dummy pin since the SD need the input 
     Serial.println(F("failed!"));
     return;
     }
@@ -101,8 +101,8 @@ void SD_init(){
     String s2;
 
     while(1){
-        s1 = "/MAIN";
-        s2 = "/SUB";
+        s1 = "MAIN";
+        s2 = "SUB";
         if (fileNum < 10) {
             s1 += "00";
             s2 += "00";
@@ -112,8 +112,8 @@ void SD_init(){
         }
         s1 += fileNum;
         s2 += fileNum;
-        s1 += ".csv";
-        s2 += ".csv";
+        s1 += ".TXT";
+        s2 += ".TXT";
         s1.toCharArray(mainName, 16);
         s2.toCharArray(subName, 16);
         if(!SD.exists(mainName)) break;
@@ -142,9 +142,26 @@ void SD_init(){
         Serial.println("error opening test.txt to write");
     }
 
+  /*
+  myFile = SD.open("/test.txt", "r"); //read from file
+  if (myFile)
+  {
+    Serial.println("test.txt:");
+    String inString;  //need to use Strings because of the ESP32 webserver
+    while (myFile.available())
+    {
+      inString += myFile.readString();
+    }
+    myFile.close();
+    Serial.print(inString);
+  }
+  else
+  {
+    Serial.println("error opening test.txt to read");
+  }
   
 }
-
+*/
 //左右の回転速度を0基準に設定(v∈[-255,255])
 void MoterControl( int left,int right) {
     int absleft = abs(left);
@@ -419,20 +436,19 @@ void stack(){
 }
 
 void parakaihi(){
-    ;
+
 
 }
 
 void kaishuu(){
-    servo1.write(88);
-    servo2.write(0);
-    delay(1000);
-    servo3.write(90);
+
+
+
+
 }
 void setting(){
-    servo1.write(0);
-    servo2.write(90);
-    servo3.write(75);
+
+
 }
 double distanceBetween(double lat1, double long1, double lat2, double long2){
     // returns distance in meters between two positions, both specified
@@ -458,7 +474,7 @@ double distanceBetween(double lat1, double long1, double lat2, double long2){
     return delta * 6372795;
 }
 
-void GetAzimuthDistance(double goallat, double goallon){
+void GetAzimuthDistance(goallat, goallon){
     GPS_data();
     Euler();
     //回転の程度をとりあえず整えてみる(turnpower∈[-180,180])
@@ -485,12 +501,12 @@ void GetAzimuthDistance(double goallat, double goallon){
 
 //GPSとオイラー角から右回転を正として回転量を出す
 //移動平均法を用いる
-void P_GPS_Moter(double goallat2, double goallon2){ 
+void P_GPS_Moter(goallat, goallon){ 
     double turn_data[5];
     double dit_data[5];
     Serial.println("P_GPS_Moter");
     for(int i = 0; i < 5; i++){
-        GetAzimuthDistance(goallat2, goallon2);
+        GetAzimuthDistance(goallat, goallon);
         turn_data[i] = azidata[0];
         dit_data[i] = azidata[1];
     }  
@@ -498,7 +514,7 @@ void P_GPS_Moter(double goallat2, double goallon2){
     double ave_dit = (dit_data[0] + dit_data[1] + dit_data[2] + dit_data[3] + dit_data[4]) / 5;
 
     while(true){
-        GetAzimuthDistance(goallat2, goallon2);
+        GetAzimuthDistance();
         turn_data[0] = turn_data[1];
         turn_data[1] = turn_data[2];
         turn_data[2] = turn_data[3];
@@ -563,25 +579,18 @@ void housyutu(){
             }
     }
 }
-void split(String data, int colornumber){
-    char color;
+void split(String data){
     int index = 0; 
     int datalength = data.length();
     bool startParsing = false;
-    if(colornumber = 1){
-        color = 'R';
-    }else if(colornumber = 2){
-        color = 'O';
-    }else{
-        color = 'Y';
-    }
     //文字列データの初期化
     pre_camera_data[0] = "";
     pre_camera_data[1] = "";
     pre_camera_data[2] = "";
+    pre_camera_data[3] = "";
     for (int i = 0; i < 15; i++) {
         char tmp = data.charAt(i);
-        if (tmp == color) {
+        if (tmp == '$') {
             startParsing = true;
             continue; // Skip processing the '$' character
         }
@@ -615,29 +624,29 @@ void split(String data, int colornumber){
     
     
 }
-void P_camera_Moter(int colornumber){
+void P_camera_Moter(goallat, goallon){
     char buff[50];
     int counter = 0;
     while(1){//カメラによる制御のためのループ
-        while (Serial2.available()) { // 同期のためにデータをすべて一旦破棄する
-            Serial2.flush();
+        while (mySerial.available()) { // 同期のためにデータをすべて一旦破棄する
+            mySerial.flush();
         }
         delay(1);
-        if(Serial2.available()>0){
-            char val = char(Serial2.read());
+        if(mySerial.available()>0){
+            char val = char(mySerial.read());
             if (val == 'R') {
                 buff[0] = 'R';
                 counter++; 
                 while(1){//カメラからのシリアル通信によるデータを受け取るためのループ、あとでデータが読めなかった場合の例外を追加する
-                    if(Serial2.available()>0){
-                        char nextval = char(Serial2.read());
+                    if(mySerial.available()>0){
+                        char nextval = char(mySerial.read());
                         buff[counter] = nextval;//x軸、y軸、面積のデータを格納
                         counter++;  
                         //二個目のメッセージであるかを判断
                         if (counter == 50){
                             Serial.println(buff);
                             //文字列を整数リストに変換
-                            split(buff, colornumber);
+                            split(buff);
                             if(camera_area_data>0.40){
                                 break;
                             }
@@ -666,7 +675,6 @@ void P_camera_Moter(int colornumber){
         }
     }
 }
-/*
 void gpsHardwareReset()
 {
   //reset the device
@@ -678,8 +686,6 @@ void gpsHardwareReset()
   delay(2000);
 
 }
-*/
-
 void missionready(){
     double inilat[5];
     double inilon[5];
@@ -723,7 +729,7 @@ void setup() {
     //serial setting
     Serial.begin(57600);
     // 速度、RX、TX、?、?、バッファ
-    Serial2.begin(57600);
+    mySerial.begin(57600,32, 33,SWSERIAL_8N1,false,256);
     Serial.println("Starting ...");
     
     //i2c setting
@@ -740,6 +746,7 @@ void setup() {
     pinMode(STBY, OUTPUT);
     pinMode(PWMA, OUTPUT);
     pinMode(PWMB, OUTPUT);
+    pinMode(RESET_PIN, OUTPUT);
     pinMode(fusePin, OUTPUT);
     digitalWrite(fusePin, LOW); // 溶断回路を通電
 
@@ -749,13 +756,7 @@ void setup() {
     Serial.println("... done");
     delay(1000);
     // servo setting
-    servo1.attach(s1,510,2400);
-    servo2.attach(s2,510,2400);
-    servo3.attach(s3,510,2400);
-    servo1.write(88);
-    servo2.write(0);
-    servo3.write(90);
-
+    servo.attach(SERVO_PIN,510,2400);
     //BNO055関連
     delay(1000);
     bool status = bno.begin();
@@ -767,7 +768,7 @@ void setup() {
     delay(100);
 
     //SDcard setting
-    SD_init();
+    //SD_init();
     //clear i2c buffer
     char c;
     idx = 0;
@@ -788,18 +789,13 @@ void loop() {
     //release sequence
     Serial.println("release sequence start");
     delay(100);
-    //housyutu();
-    //missionready();
-    //P_GPS_Moter(goalGPSdata[0],goalGPSdata[1]);
-    //ledmaker(2);
+    housyutu();
+    missionready();
+    P_GPS_Moter(goalGPSdata[0],goalGPSdata[1]);
+    ledmaker(2);
     //アーム展開
     Serial.println("camera sequence start");
-    P_camera_Moter(1);
-    P_GPS_Moter(setGPSdata[0],setGPSdata[1]);
-    P_camera_Moter(2);
-    kaishuu();
-    P_GPS_Moter(goalGPSdata[0],goalGPSdata[1]);
-    P_camera_Moter(1);
+    P_camera_Moter();
     //delay(1000);
     delay(9999999);
     // put your main code here, to run repeatedly:

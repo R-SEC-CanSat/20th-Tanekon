@@ -12,24 +12,14 @@ void setup() {
   Serial.begin(115200);
   SerialBT.begin("ESP32test"); //Bluetooth device name
   Serial.println("The device started, now you can pair it with bluetooth!");
-  pinMode( 2, OUTPUT);
-  pinMode(14, OUTPUT);
-
-  // Sign for the end of bluetooth setup.
-  for (int i=0; i<3; i++) {
-    digitalWrite(2, HIGH);
-    delay(50);
-    digitalWrite(2, LOW);
-    delay(50);
-  }
 }
 
 void loop() {
   if (SerialBT.available()) {
     if (SerialBT.read() == 'T') {
-        digitalWrite(14, HIGH);
+        Serial.print(SerialBT.read());
     }
   }
   delay(20);
-  digitalWrite(14, LOW);
+  
 }
