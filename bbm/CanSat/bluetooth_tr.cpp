@@ -1,19 +1,29 @@
 #include "BluetoothSerial.h"
+#include <Arduino.h>
+#include <SPI.h>
+#include <Wire.h>
+
 
 BluetoothSerial SerialBT;
 
-String MACadd = "08:B6:1F:EF:91:C6";
-uint8_t address[6]  = {0x08, 0xB6, 0x1F, 0xEF, 0x91, 0xC6};
+String MACadd = "08:B6:1F:EE:42:2A";
+uint8_t address[6]  = {0x08, 0xB6, 0x1F, 0xEE, 0x42, 0x2A};
+//uint8_t address[6]  = {0x00, 0x1D, 0xA5, 0x02, 0xC3, 0x22};
+String name = "OBDII";
+char *pin = "1234"; //<- standard pin would be provided by default
 bool connected;
 
 void setup() {
   Serial.begin(115200);
+  //SerialBT.setPin(pin);
   SerialBT.begin("ESP32test", true); 
+  //SerialBT.setPin(pin);
   Serial.println("The device started in master mode, make sure remote BT device is on!");
   
   // connect(address) is fast (upto 10 secs max), connect(name) is slow (upto 30 secs max) as it needs
   // to resolve name to address first, but it allows to connect to different devices with the same name.
   // Set CoreDebugLevel to Info to view devices bluetooth address and device names
+  //connected = SerialBT.connect(name);
   connected = SerialBT.connect(address);
   
   if(connected) {
@@ -32,7 +42,11 @@ void setup() {
 }
 
 void loop() {
-    SerialBT.write('T');
-  
+  if (Serial.available()) {
+    SerialBT.write(1);
+  }
+  if (SerialBT.available()) {
+    Serial.write(SerialBT.read());
+  }
   delay(20);
 }

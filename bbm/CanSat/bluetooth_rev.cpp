@@ -1,4 +1,7 @@
 //08:B6:1F:EF:91:C6
+#include <Arduino.h>
+#include <SPI.h>
+#include <Wire.h>
 
 #include "BluetoothSerial.h"
 
@@ -16,10 +19,9 @@ void setup() {
 
 void loop() {
   if (SerialBT.available()) {
-    if (SerialBT.read() == 'T') {
+    
         Serial.print(SerialBT.read());
-    }
-  }
+   
   delay(20);
-  
+  }
 }
