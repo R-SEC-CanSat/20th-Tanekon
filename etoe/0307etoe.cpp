@@ -15,7 +15,7 @@
 #include <softwareFilter.h>
 #include "BluetoothSerial.h"
 //misson setting
-char sequence = 'A';
+char progress = 'A';
 
 //BNO055 setting
 Adafruit_BNO055 bno = Adafruit_BNO055(55, 0x28, &Wire);
@@ -73,11 +73,14 @@ const int SD_MISO = 19;
 const int SD_SCK  = 18;
 const int SD_CS_PIN  = 5;
 
+File iniFile;
 File mainFile;
 File subFile;
 int fileNum;
 char mainName[16];
 char subName[16];
+char premainName[16];
+char presubName[16];
 
 //Bluetooth setting
 String device_name = "bamboo";
@@ -101,8 +104,11 @@ void SD_init(){
     // ファイル名決定
     String s1;
     String s2;
+    String pres1;
+    String pres2;
 
     while(1){
+        
         s1 = "/MAIN";
         s2 = "/SUB";
         if (fileNum < 10) {
@@ -118,41 +124,128 @@ void SD_init(){
         s2 += ".csv";
         s1.toCharArray(mainName, 16);
         s2.toCharArray(subName, 16);
-        if(!SD.exists(mainName)) break;
+        if(!SD.exists(mainName)){
+            pres1 = "/MAIN";
+            pres2 = "/SUB";
+            if (fileNum < 10) {
+                pres1 += "00";
+                pres2 += "00";
+            }else if(fileNum < 100) {
+                pres1 += "0";
+                pres2 += "0";
+            }
+            pres1 += fileNum - 1;
+            pres2 += fileNum -1;
+            pres1 += ".csv";
+            pres2 += ".csv";
+            s1.toCharArray(premainName, 16);
+            s2.toCharArray(presubName, 16);
+            char ch;
+            iniFile = SD.open(premainName, FILE_READ);
+            if(iniFile){
+                while(iniFile.available()){
+                ch = iniFile.read();
+                Serial.print(ch);
+                if(ch >= progress)
+                progress = ch;
+                }
+                iniFile.close();
+
+            } break;
+        }
         fileNum++;
+        
     }
-
-
-    mainFile = SD.open(mainName, FILE_WRITE); //append to file
-    subFile = SD.open(subName, FILE_WRITE); 
-    if (mainFile){
-        Serial.print("Writing to test.txt...");
-        mainFile.print(sequence);
-        mainFile.print(',');
-        mainFile.print(moduleExist);
-        mainFile.print(',');
-        mainFile.println(azidata[1]);
-        mainFile.close();
-        Serial.println("done.");
+    if(progress == 'A'||progress == 'E'){
+        
+        mainFile = SD.open(mainName, FILE_WRITE); //append to file
+        subFile = SD.open(subName, FILE_WRITE); 
+        if (mainFile){
+            Serial.print("Writing to test.txt...");
+            mainFile.print(progress);
+            mainFile.print(',');
+            mainFile.print(moduleExist);
+            mainFile.print(',');
+            mainFile.println(azidata[1]);
+            mainFile.close();
+            Serial.println("done.");
+        }
+        else{
+            Serial.println("error opening test.txt to write");
+        }
+        if (subFile){
+            Serial.print("Writing to test.txt...");
+            subFile.println("testing 1, 2, 3.");
+            subFile.close();
+            Serial.println("done.");
+        }
+        else{
+            Serial.println("error opening test.txt to write");
+        }
+    }else{
+        for(int i = 0; i < 16; i++){
+            mainName[i] = premainName[i];
+            subName[i] = presubName[i];
+        }
     }
-    else{
-        Serial.println("error opening test.txt to write");
-    }
-    if (subFile){
-        Serial.print("Writing to test.txt...");
-        subFile.println("testing 1, 2, 3.");
-        subFile.close();
-        Serial.println("done.");
-    }
-    else{
-        Serial.println("error opening test.txt to write");
-    }
-
-  
 }
 
+void Euler(){
+    
+    imu::Quaternion quat = bno.getQuat();
+    double w = quat.w();
+    double x = quat.x();
+    double y = quat.y();
+    double z = quat.z();
+
+    double ysqr = y * y;
+
+    // roll (x-axis rotation)
+    double t0 = +2.0 * (w * x + y * z);
+    double t1 = +1.0 - 2.0 * (x * x + ysqr);
+    double roll = atan2(t0, t1);
+
+    // pitch (y-axis rotation)
+    double t2 = +2.0 * (w * y - z * x);
+    t2 = t2 > 1.0 ? 1.0 : t2;
+    t2 = t2 < -1.0 ? -1.0 : t2;
+    double pitch = asin(t2);
+
+    // yaw (z-axis rotation)
+    double t3 = +2.0 * (w * z + x * y);
+    double t4 = +1.0 - 2.0 * (ysqr + z * z);  
+    double yaw = atan2(t3, t4);
+
+    //ラジアンから度に変換
+    roll *= 57.2957795131;
+    pitch *= 57.2957795131;
+    yaw *= 57.2957795131;
+
+    eulerdata[0] = roll;
+    eulerdata[1] = pitch;
+    //オイラー角の値を調整
+    eulerdata[2] = yaw -22;
+}
 //左右の回転速度を0基準に設定(v∈[-255,255])
 void MoterControl( int left,int right) {
+    \\初めにスタック解除
+    Euler();
+    while(eulerdata[0] > 88){
+        digitalWrite(AIN1, LOW);
+        digitalWrite(AIN2, HIGH);
+        digitalWrite(BIN1, HIGH);
+        digitalWrite(BIN2, LOW);
+        analogWrite(PWMA, 255);
+        analogWrite(PWMB, 255);
+        delay(750);
+        digitalWrite(AIN1, LOW);
+        digitalWrite(AIN2, LOW);
+        digitalWrite(BIN1, LOW);
+        digitalWrite(BIN2, LOW);
+        analogWrite(PWMA, 0);
+        analogWrite(PWMB, 0);
+    }
+
     int absleft = abs(left);
     int absright = abs(right);
 
@@ -347,12 +440,16 @@ void GPS_data(){
 
                         String mlat = String(lat);
                         Serial.println(mlat);
+                        Serial.println(mlat.substring(0,2).toDouble());
                         Serial.println(mlat.substring(2,4).toDouble());
-                        Serial.println(mlat.substring(4,9).toDouble());
-                        Serial.println(mlat.substring(6,8).toDouble());
-                        double latitude = mlat.substring(0,2).toDouble() + mlat.substring(2,9).toDouble() / 60.0 / 100000.0;
+                        Serial.println(mlat.substring(5,10).toDouble());
+                        double latitude = mlat.substring(0,2).toDouble() + mlat.substring(2,4).toDouble() / 60.0 + mlat.substring(5,10).toDouble() / 60.0 / 100000.0;
                         String mlon = String(lon);
-                        double longitude = mlon.substring(0,3).toDouble() + mlon.substring(3,10).toDouble() / 60.0 / 100000.0;
+                        Serial.println(mlon);
+                        Serial.println(mlon.substring(0,3).toDouble());
+                        Serial.println(mlon.substring(3,5).toDouble());
+                        Serial.println(mlon.substring(6,11).toDouble());
+                        double longitude = mlon.substring(0,3).toDouble() + mlon.substring(3,5).toDouble() / 60.0 + mlon.substring(6,11).toDouble() / 60.0 / 100000.0;
                         double goaldirection  = 57.2957795131 * atan2(goalGPSdata[0] - latitude, goalGPSdata[1] - longitude);
                         if(goaldirection > -90){
                             goaldirection -= 90;
@@ -378,51 +475,9 @@ void GPS_data(){
   }
 }
 
-void Euler(){
-    
-    imu::Quaternion quat = bno.getQuat();
-    double w = quat.w();
-    double x = quat.x();
-    double y = quat.y();
-    double z = quat.z();
-
-    double ysqr = y * y;
-
-    // roll (x-axis rotation)
-    double t0 = +2.0 * (w * x + y * z);
-    double t1 = +1.0 - 2.0 * (x * x + ysqr);
-    double roll = atan2(t0, t1);
-
-    // pitch (y-axis rotation)
-    double t2 = +2.0 * (w * y - z * x);
-    t2 = t2 > 1.0 ? 1.0 : t2;
-    t2 = t2 < -1.0 ? -1.0 : t2;
-    double pitch = asin(t2);
-
-    // yaw (z-axis rotation)
-    double t3 = +2.0 * (w * z + x * y);
-    double t4 = +1.0 - 2.0 * (ysqr + z * z);  
-    double yaw = atan2(t3, t4);
-
-    //ラジアンから度に変換
-    roll *= 57.2957795131;
-    pitch *= 57.2957795131;
-    yaw *= 57.2957795131;
-
-    eulerdata[0] = roll;
-    eulerdata[1] = pitch;
-    //オイラー角の値を調整
-    eulerdata[2] = yaw -22;
-}
 
 
-void stack(){
-    if(eulerdata[0] > 88){
-    MoterControl(-255,-255);
-    delay(1000);
-    stop();
-    }
-}
+
 
 void parakaihi(){
     ;
@@ -629,6 +684,14 @@ void split(String data, int colornumber){
 void P_camera_Moter(int colornumber){
     char buff[50];
     int counter = 0;
+    char color = 'R'; 
+    if (colornumber = 1){
+        color = 'R';
+    }else if(colornumber = 2){
+        color = 'O';
+    }else{
+        color = 'Y';
+    }
     while(1){//カメラによる制御のためのループ
       
         if(Serial2.available()){ // 同期のためにデータをすべて一旦破棄する
@@ -639,8 +702,8 @@ void P_camera_Moter(int colornumber){
         delay(1);
         if(Serial2.available()>0){
             char val = char(Serial2.read());
-            if (val == 'R') {
-                buff[0] = 'R';
+            if (val == color) {
+                buff[0] = color;
                 counter++;
                 while(1){//カメラからのシリアル通信によるデータを受け取るためのループ、あとでデータが読めなかった場合の例外を追加する
                     if(Serial2.available()>0){
@@ -793,10 +856,10 @@ void setup() {
     while ((uint8_t) c != 0xFF);
 }
 void SD_main_write(){
-    mainFile = SD.open(mainName, FILE_WRITE); //append to file
+    mainFile = SD.open(mainName, FILE_APPEND); //append to file
     if (mainFile){
         Serial.print("Writing to test.txt...");
-        mainFile.print(sequence);
+        mainFile.print(progress);
         mainFile.print(',');
         mainFile.print(moduleExist);
         mainFile.print(',');
@@ -810,27 +873,51 @@ void SD_main_write(){
     
 }
 void loop() {
-    sequence++;
-    SD_main_write();
-    //release sequence_1
-    Serial.println("release sequence start");
-    delay(100);
-    //housyutu();
-    //missionready();
-    sequence++;
-    //GPS sequence_2
-    Serial.println("gps sequence start");
-    P_GPS_Moter(goalGPSdata[0],goalGPSdata[1]);
-    //ledmaker(2);
-    //アーム展開
-    Serial.println("camera sequence start");
-    P_camera_Moter(1);
-    //P_GPS_Moter(setGPSdata[0],setGPSdata[1]);
-    P_camera_Moter(2);
-    kaishuu();
-    //P_GPS_Moter(goalGPSdata[0],goalGPSdata[1]);
-    //P_camera_Moter(1);
-    //delay(1000);
-    delay(9999999);
+    if(progress == 'A'){
+        SD_main_write();
+        //release sequence_1
+        Serial.println("release progress start");
+        delay(100);
+        housyutu();
+        progress++;
+    }
+    if(progress == 'B'){
+        SD_main_write();
+        missionready();
+        
+        //GPS sequence_2
+        Serial.println("gps progress start");
+        P_GPS_Moter(goalGPSdata[0],goalGPSdata[1]);
+        //ledmaker(2);
+        //アーム展開
+        Serial.println("camera progress start");
+        P_camera_Moter(1);
+        progress++;
+    }
+    if(progress == 'C'){
+        //P_GPS_Moter(setGPSdata[0],setGPSdata[1]);
+        P_camera_Moter(2);
+        kaishuu();
+        progress++;
+    }
+    if(progress == 'D'){
+        //P_GPS_Moter(goalGPSdata[0],goalGPSdata[1]);
+        //P_camera_Moter(1);
+        progress++;
+    }
+    if(progress == 'E'){
+        mainFile = SD.open(mainName, FILE_APPEND); //append to file
+        if (mainFile){
+            Serial.print("Writing to test.txt...");
+            mainFile.print("Misson Complete");
+            mainFile.close();
+            Serial.println("done.");
+        }
+        else{
+            Serial.println("error opening test.txt to write");
+        }
+    
+    }
+    exit(1);
     // put your main code here, to run repeatedly:
 }
