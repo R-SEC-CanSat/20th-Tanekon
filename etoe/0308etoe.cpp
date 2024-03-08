@@ -1,5 +1,6 @@
 //etoe前に確認すること
 //１．溶断のピン番号と時間
+//microsd
 #include <Arduino.h>
 #include <Wire.h>
 #include <SPI.h>
@@ -35,7 +36,7 @@ double goalGPSdata4[2] = {35.70279, 139.56110};
 //ゴールの緯度経度(作業場近くのセブン)
 double goalGPSdata5[2] = {35.717167, 139.823181};
 //種子島
-double goalGPSdata[2] = {30.3745514, 139.9596799};
+double goalGPSdata[2] = {30.5303886, 130.957834};
 //I2C communication parameters
 #define DEFAULT_DEVICE_ADDRESS 0x42
 //I2C read data structures
@@ -97,6 +98,8 @@ Servo servo1;
 Servo servo2;
 Servo servo3;
 bool moduleExist = true;
+//光量センサのアナログ値を格納する変数
+int cn1Value;
 
 void SD_init(){
   //  SPIClass SPI2(HSPI);
@@ -215,6 +218,23 @@ void printEvent(sensors_event_t* event) {
     Serial.print(y);
     Serial.print(" |\tz= ");
     Serial.println(z);
+}
+void SD_main_write(){
+    mainFile = SD.open(mainName, FILE_APPEND); //append to file
+    if (mainFile){
+        Serial.print("Writing to test.txt...");
+        mainFile.print(progress);
+        mainFile.print(',');
+        mainFile.print(moduleExist);
+        mainFile.print(',');
+        mainFile.println(azidata[1]);
+        mainFile.close();
+        Serial.println("done.");
+    }
+    else{
+        Serial.println("error opening test.txt to write");
+    }
+    
 }
 void Euler(){
     
@@ -405,11 +425,12 @@ void GPS_data_setup(){
                 String mlon = String(lon);
                 double longitude = mlon.substring(0,3).toDouble() + mlon.substring(3,10).toDouble() / 60.0 / 100000.0;
                 double goaldirection  = 57.2957795131 * atan2(goalGPSdata[0] - latitude, goalGPSdata[1] - longitude);
+                
                 if(goaldirection > -90){
-                    goaldirection -= 90;
-                }else{
-                    goaldirection += 270;
-                }
+                            goaldirection = goaldirection -90;
+                        }else{
+                            goaldirection += 270;
+                        }
                 
                 Serial.print("latitude: ");
                 Serial.print(latitude,7);
@@ -455,12 +476,12 @@ void GPS_data_setup(){
                         String mlon = String(lon);
                         double longitude = mlon.substring(0,3).toDouble() + mlon.substring(3,10).toDouble() / 60.0 / 100000.0;
                         double goaldirection  = 57.2957795131 * atan2(goalGPSdata[0] - latitude, goalGPSdata[1] - longitude);
+                        
                         if(goaldirection > -90){
-                            goaldirection -= 90;
+                            goaldirection = goaldirection -90;
                         }else{
                             goaldirection += 270;
                         }
-                        
                         Serial.print("latitude: ");
                         Serial.print(latitude,7);
                         Serial.print("\tlongitude: ");
@@ -508,9 +529,10 @@ void GPS_data_setup(){
                         Serial.println(mlon.substring(3,5).toDouble());
                         Serial.println(mlon.substring(6,11).toDouble());
                         double longitude = mlon.substring(0,3).toDouble() + mlon.substring(3,5).toDouble() / 60.0 + mlon.substring(6,11).toDouble() / 60.0 / 100000.0;
-                        double goaldirection  = 57.2957795131 * atan2(goalGPSdata[0] - latitude, goalGPSdata[1] - longitude);
+                                double goaldirection  = 57.2957795131 * atan2(goalGPSdata[0] - latitude, goalGPSdata[1] - longitude);
+                                
                         if(goaldirection > -90){
-                            goaldirection -= 90;
+                            goaldirection = goaldirection -90;
                         }else{
                             goaldirection += 270;
                         }
@@ -549,7 +571,8 @@ void GPS_data_run(double goallat,double goallon){
     c = buff[idx];
     idx++;
     idx %= 80;
-    if (idx %= 30){
+    /*
+    if (idx %= 100){
         Euler();
         double turnpower;
         turnpower = currentGPSdata[2] - eulerdata[2];
@@ -596,6 +619,7 @@ void GPS_data_run(double goallat,double goallon){
         } 
 
     }
+    */
     //If we have a valid character pass it to the library
     if ((uint8_t) c != 0xFF) {
       Serial.print(c);
@@ -628,12 +652,12 @@ void GPS_data_run(double goallat,double goallon){
                 String mlon = String(lon);
                 double longitude = mlon.substring(0,3).toDouble() + mlon.substring(3,10).toDouble() / 60.0 / 100000.0;
                 double goaldirection  = 57.2957795131 * atan2(goalGPSdata[0] - latitude, goalGPSdata[1] - longitude);
-                if(goaldirection > -90){
-                    goaldirection -= 90;
-                }else{
-                    goaldirection += 270;
-                }
                 
+                if(goaldirection > -90){
+                            goaldirection = goaldirection -90;
+                        }else{
+                            goaldirection += 270;
+                        }
                 Serial.print("latitude: ");
                 Serial.print(latitude,7);
                 Serial.print("\tlongitude: ");
@@ -678,12 +702,12 @@ void GPS_data_run(double goallat,double goallon){
                         String mlon = String(lon);
                         double longitude = mlon.substring(0,3).toDouble() + mlon.substring(3,10).toDouble() / 60.0 / 100000.0;
                         double goaldirection  = 57.2957795131 * atan2(goalGPSdata[0] - latitude, goalGPSdata[1] - longitude);
+                                
                         if(goaldirection > -90){
-                            goaldirection -= 90;
+                            goaldirection = goaldirection -90;
                         }else{
                             goaldirection += 270;
                         }
-                        
                         Serial.print("latitude: ");
                         Serial.print(latitude,7);
                         Serial.print("\tlongitude: ");
@@ -732,8 +756,9 @@ void GPS_data_run(double goallat,double goallon){
                         Serial.println(mlon.substring(6,11).toDouble());
                         double longitude = mlon.substring(0,3).toDouble() + mlon.substring(3,5).toDouble() / 60.0 + mlon.substring(6,11).toDouble() / 60.0 / 100000.0;
                         double goaldirection  = 57.2957795131 * atan2(goalGPSdata[0] - latitude, goalGPSdata[1] - longitude);
+                                
                         if(goaldirection > -90){
-                            goaldirection -= 90;
+                            goaldirection = goaldirection -90;
                         }else{
                             goaldirection += 270;
                         }
@@ -764,11 +789,21 @@ void parakaihi(){
 }
 
 void kaishuu(){
+    MoterControl(0,0);
     servo1.write(88);
     servo2.write(0);
     delay(1000);
     servo3.write(90);
-
+    delay(1000);
+    cn1Value = analogRead(35);
+    //光量でモジュールの存在を確認、実験地は未定
+    if(cn1Value > 500){
+        moduleExist = false;
+    }
+    else{
+        moduleExist = true;
+    }
+    //ここにbluetoothでのデータ送信を入れる
     if (SerialBT.available()) {
         Serial.write(SerialBT.read());
     }
@@ -882,10 +917,6 @@ void housyutu(){
     }
     
     delay(1000);
-            Serial.println("youdan");
-            digitalWrite(fusePin, HIGH); // 溶断回路を通電
-            delay(5000);
-            digitalWrite(fusePin, LOW); // 
 }
 void tyakuti(){
     unsigned long startTime = millis();
@@ -895,7 +926,7 @@ void tyakuti(){
         if(eulerdata[5] < 5){
             break;
         }
-        else if(currentTime - startTime > 10000){
+        else if(currentTime - startTime > 6500){
             break;
         }
         else{
@@ -904,8 +935,9 @@ void tyakuti(){
         delay(500);
         
     }
+    Serial.println("youdan");
     digitalWrite(fusePin, HIGH); // 溶断回路を通電
-    delay(2000);
+    delay(500);
     digitalWrite(fusePin, LOW); // 
     delay(1000);
 
@@ -980,7 +1012,6 @@ void P_camera_Moter(int colornumber){
             Serial2.flush();
             Serial.println("serial2 flush");
         }
-        
         delay(1);
         if(Serial2.available()>0){
             char val = char(Serial2.read());
@@ -1025,19 +1056,6 @@ void P_camera_Moter(int colornumber){
         }
     }
 }
-/*
-void gpsHardwareReset()
-{
-  //reset the device
-  digitalWrite(RESET_PIN, LOW);
-  delay(50);
-  digitalWrite(RESET_PIN, HIGH);
-
-  //wait for reset to apply
-  delay(2000);
-
-}
-*/
 
 void missionready(){
     double inilat[5];
@@ -1062,18 +1080,20 @@ void missionready(){
     setGPSdata[0] = (inilat[0] + inilat[1] + inilat[2] + inilat[3] + inilat[4]) / 5;
     setGPSdata[1] = (inilon[0] + inilon[1] + inilon[2] + inilon[3] + inilon[4]) / 5;
     Serial.println("Setting!!!");
+    moduleExist = 0;
+    SD_main_write();
     Serial.print("latitude: ");
     Serial.print(setGPSdata[0],7);
     Serial.print("\tlongitude: ");
     Serial.println(setGPSdata[1],7);
     setting();
     //back and turn left
-    for(int i = 0; i < 25; i++){
-        MoterControl(-10 * i,-10 * i);
+    for(int i = 0; i < 10; i++){
+        MoterControl(-100 - 10 * i,-100 - 10 * i);
         delay(500);
     }
     for(int i = 0; i < 25; i++){
-        MoterControl(-250 + 10 * i,-250 + 10 * i);
+        MoterControl(-200 + 10 * i,-200 + 10 * i);
         delay(500);
     }
 }
@@ -1140,32 +1160,10 @@ void setup() {
     SD_init();
     
 }
-void SD_main_write(){
-    mainFile = SD.open(mainName, FILE_APPEND); //append to file
-    if (mainFile){
-        Serial.print("Writing to test.txt...");
-        mainFile.print(progress);
-        mainFile.print(',');
-        mainFile.print(moduleExist);
-        mainFile.print(',');
-        mainFile.println(azidata[1]);
-        mainFile.close();
-        Serial.println("done.");
-    }
-    else{
-        Serial.println("error opening test.txt to write");
-    }
-    
-}
+//SD保存の関数、進捗、モジュール有無、距離のデータが変わったらデータを書き込む
+
 void loop() {
-    while(1){
-        Euler();
-        Serial.println(eulerdata[0]);
-        Serial.println(eulerdata[1]);
-        Serial.println(eulerdata[2]);
-        delay(1000);
-    }
-    
+    P_GPS_Moter(goalGPSdata[0],goalGPSdata[1]);
     if(progress == 'A'){
         SD_main_write();
         //release sequence_1
