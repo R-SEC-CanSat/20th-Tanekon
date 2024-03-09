@@ -22,7 +22,6 @@
 */
 
 #include <Arduino.h>
-#include <M5Core2.h>
 #include <Wire.h>
 #include <Adafruit_Sensor.h>
 #include <Adafruit_BNO055.h>
@@ -31,7 +30,7 @@
 #include <Adafruit_BusIO_Register.h>
 #include <SPI.h>
 
-#include "SparkFunBME280.h"
+#include <SparkFunBME280.h>
 BME280 mySensor;
 
 void setup()

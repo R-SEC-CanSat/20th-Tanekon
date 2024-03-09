@@ -2,7 +2,13 @@
 #include <Arduino.h>
 #include <SPI.h>
 #include <Wire.h>
-
+#include <Adafruit_Sensor.h>
+#include <Adafruit_BNO055.h>
+#include <utility/imumaths.h>
+#include <Adafruit_I2CDevice.h>
+#include <Adafruit_BusIO_Register.h>
+#include "SparkFunBME280.h"
+BME280 mySensor;
 
 BluetoothSerial SerialBT;
 
@@ -39,10 +45,14 @@ void setup() {
   }
   // this would reconnect to the name(will use address, if resolved) or address used with connect(name/address).
   SerialBT.connect();
+  if (mySensor.beginSPI(19) == false) //Begin communication over SPI. Use pin 2 as CS.
+  {
+    Serial.println("The sensor did not respond. Please check wiring.");
+    while(1); //Freeze
+  }
 }
 
 void loop() {
-  if (Serial.available()) {
     SerialBT.write(1);
   }
   if (SerialBT.available()) {

@@ -1,3 +1,4 @@
+//servo check
 //etoe前に確認すること
 //１．溶断のピン番号と時間
 //microsd
@@ -15,7 +16,9 @@
 #include <ESP32Servo.h>
 #include <softwareFilter.h>
 #include "BluetoothSerial.h"
-//misson settingS
+
+//misson setting
+String missionString = "";         // 入力文字列を格納するための変数
 char progress = 'A';
 
 //BNO055 setting
@@ -53,7 +56,9 @@ double ave_dit;
 //camera setting
 String pre_camera_data[9];
 int camera_data[9];
-double camera_area_data = 0.0;
+double camera_area_data_red = 0.0;
+double camera_area_data_orange = 0.0;
+double camera_area_data_yellow = 0.0;
 
 //dcmoter setting
 #define gpsTp 0.75
@@ -68,9 +73,9 @@ const int BIN2 = 4; // 2つ目のDCモーターの制御
 const int PWMA = 12; // 1つ目のDCモーターの回転速度
 const int PWMB = 15; // 2つ目のDCモーターの回転速度
 const int fusePin = 14;  // 溶断回路の制御,今はダミー
-const int s1 = 25;
-const int s2 = 33;
-const int s3 = 32; 
+const int s1 = 33;
+const int s2 = 32;
+const int s3 = 25; 
 //led点灯用
 
 
@@ -105,8 +110,8 @@ void SD_init(){
   //  SPIClass SPI2(HSPI);
     //SPISD.begin(SD_SCK, SD_MISO, SD_MOSI);
     if (!SD.begin()) {  //SD_CS_PIN this pin is just the dummy pin since the SD need the input 
-    Serial.println(F("failed!"));
-    return;
+        Serial.println(F("failed!"));
+        return;
     }
     else Serial.println(F("SD read!"));
 
@@ -747,14 +752,14 @@ void GPS_data_run(double goallat,double goallon){
                         Serial.println(mlat);
                         Serial.println(mlat.substring(0,2).toDouble());
                         Serial.println(mlat.substring(2,4).toDouble());
-                        Serial.println(mlat.substring(5,10).toDouble());
-                        double latitude = mlat.substring(0,2).toDouble() + mlat.substring(2,4).toDouble() / 60.0 + mlat.substring(5,10).toDouble() / 60.0 / 100000.0;
+                        Serial.println(mlat.substring(4,9).toDouble());
+                        double latitude = mlat.substring(0,2).toDouble() + mlat.substring(2,4).toDouble() / 60.0 + mlat.substring(4,9).toDouble() / 60.0 / 100000.0;
                         String mlon = String(lon);
                         Serial.println(mlon);
                         Serial.println(mlon.substring(0,3).toDouble());
                         Serial.println(mlon.substring(3,5).toDouble());
-                        Serial.println(mlon.substring(6,11).toDouble());
-                        double longitude = mlon.substring(0,3).toDouble() + mlon.substring(3,5).toDouble() / 60.0 + mlon.substring(6,11).toDouble() / 60.0 / 100000.0;
+                        Serial.println(mlon.substring(5,11).toDouble());
+                        double longitude = mlon.substring(0,3).toDouble() + mlon.substring(3,5).toDouble() / 60.0 + mlon.substring(5,10).toDouble() / 60.0 / 100000.0;
                         double goaldirection  = 57.2957795131 * atan2(goalGPSdata[0] - latitude, goalGPSdata[1] - longitude);
                                 
                         if(goaldirection > -90){
@@ -868,7 +873,7 @@ void P_GPS_Moter(double goallat2, double goallon2){
         dit_data.dataAdd(azidata[1]);
         ave_turn = turn_data.filter();
         ave_dit = dit_data.filter();
-        if(ave_dit < 20){
+        if(ave_dit < 15){
             break;
         }
         else{
@@ -892,7 +897,7 @@ void P_GPS_Moter(double goallat2, double goallon2){
 }
 void housyutu(){
     Serial.println("housyutu");
-    //横の状態を確認
+    //機体の質量測定
     while (1){
         Euler();
         Serial.println(eulerdata[1]);
@@ -901,21 +906,47 @@ void housyutu(){
             break;
             }
         else{
-            delay(1000);
+            delay(500);
             }
     }
+    //キャリアに入れた後、ゆっくりと反転させる、感覚は狭め
+    //横
     while(1){
         Euler();
         Serial.println(eulerdata[1]);
         if (eulerdata[1] <= 45 && eulerdata[1] >= -45) {
-            
+
             break;
             }
         else{
-            delay(1000);
+            delay(500);
             }
     }
-    
+    //この状態でクレーンで上げる
+    while (1){
+        Euler();
+        Serial.println(eulerdata[1]);
+        if (eulerdata[1] <= -45 || eulerdata[1] >= 45) {
+            delay(500);
+            break;
+            }
+        else{
+            delay(500);
+            }
+    }
+    //放出
+    while(1){
+        Euler();
+        Serial.println(eulerdata[1]);
+        if (eulerdata[1] <= 45 && eulerdata[1] >= -45) {
+
+            break;
+            }
+        else{
+            delay(500);
+            }
+    }
+
     delay(1000);
 }
 void tyakuti(){
@@ -959,6 +990,13 @@ void split(String data, int colornumber){
     pre_camera_data[0] = "";
     pre_camera_data[1] = "";
     pre_camera_data[2] = "";
+    pre_camera_data[3] = "";
+    pre_camera_data[4] = "";
+    pre_camera_data[5] = "";
+    pre_camera_data[6] = "";
+    pre_camera_data[7] = "";
+    pre_camera_data[8] = "";
+    pre_camera_data[9] = "";
     for (int i = 0; i < 15; i++) {
         char tmp = data.charAt(i);
         if (tmp == color) {
@@ -982,18 +1020,31 @@ void split(String data, int colornumber){
 
         }
     }
-    String prebottom_area_data = String(pre_camera_data[2]);
-    Serial.println(prebottom_area_data);
-    String bottom_area_data = prebottom_area_data.substring(2,6);
-    Serial.println(bottom_area_data);
+    //赤色データの変換
+    String prebottom_area_data_red = String(pre_camera_data[2]);
+    Serial.println(prebottom_area_data_red);
+    String bottom_area_data_red = prebottom_area_data_red.substring(2,6);
+    Serial.println(bottom_area_data_red);
+    //朱色データの変換
+    String prebottom_area_data_orange = String(pre_camera_data[5]);
+    Serial.println(prebottom_area_data_orange);
+    String bottom_area_data_orange = prebottom_area_data_orange.substring(2,6);
+    Serial.println(bottom_area_data_orange);
+    //黄色データの変換
+    String prebottom_area_data_yellow = String(pre_camera_data[8]);
+    Serial.println(prebottom_area_data_yellow);
+    String bottom_area_data_yellow = prebottom_area_data_yellow.substring(2,6);
+    Serial.println(bottom_area_data_yellow);
+
+
     //文字列リストを整数リストに変換
-    for(int i = 0; i < 2; i++){
+    for(int i = 0; i < 9; i++){
         camera_data[i] = pre_camera_data[i].toInt();
     }
-    camera_area_data = bottom_area_data.toDouble() / 10000.0;
-    Serial.println(camera_area_data);
-    
-    
+    camera_area_data_red = bottom_area_data_red.toDouble() / 10000.0;
+    camera_area_data_orange = bottom_area_data_orange.toDouble() / 10000.0;
+    camera_area_data_yellow = bottom_area_data_yellow.toDouble() / 10000.0;
+
 }
 void P_camera_Moter(int colornumber){
     char buff[50];
@@ -1028,7 +1079,7 @@ void P_camera_Moter(int colornumber){
                             Serial.println(buff);
                             //文字列を整数リストに変換
                             split(buff, colornumber);
-                            if(camera_area_data>0.40){
+                            if(camera_area_data_red>0.40){
                                 break;
                             }
                             Serial.print(camera_data[0]);delay(10);//シリアルモニタの表示がバグるので時間を置く、ここが変
@@ -1049,7 +1100,7 @@ void P_camera_Moter(int colornumber){
                         }
                     }
                 }
-                if(camera_area_data>0.40){//二重ループを抜けるための応急措置
+                if(camera_area_data_red>0.40){//二重ループを抜けるための応急措置
                     break;
                 }
             }
@@ -1097,12 +1148,26 @@ void missionready(){
         delay(500);
     }
 }
-
+void handleInput(char input[]) {
+  // ここには入力に従ったプログラムを書く、文字列はarduinoでは使えない
+    if (input == "A") {
+        Serial.println("A");
+    } else if (input == "B") {
+        Serial.println("B");
+    } else if (input == "C") {
+        Serial.println("C");
+    } else if (input == "D") {
+        Serial.println("D");
+    }
+}
 void setup() {
+    //mission setting
+    missionString.reserve(50); // 入力文字列のためのメモリを予約
     //serial setting
     Serial.begin(57600);
     // 速度、RX、TX、?、?、バッファ
     Serial2.begin(57600);
+    SerialBT.begin("ESP32test");
     Serial.println("Starting ...");
     //i2c setting
     Wire.begin(21,22);
@@ -1145,7 +1210,7 @@ void setup() {
     pinMode(STBY, OUTPUT);
     pinMode(PWMA, OUTPUT);
     pinMode(PWMB, OUTPUT);
-    pinMode(fusePin, OUTPUT);
+    gpio_set_pull_mode(GPIO_NUM_14,GPIO_PULLDOWN_ONLY);
     digitalWrite(fusePin, LOW); // 溶断回路を通電
     // servo setting
     servo1.attach(s1,510,2400);
@@ -1159,11 +1224,33 @@ void setup() {
     //SDcard setting
     SD_init();
     
+    //デバッグ用進捗タイム
+    unsigned long missionstartTime = millis();
 }
 //SD保存の関数、進捗、モジュール有無、距離のデータが変わったらデータを書き込む
 
 void loop() {
-    P_GPS_Moter(goalGPSdata[0],goalGPSdata[1]);
+    char missionbuff[50];
+    int counter = 0;
+    while(1){
+        if(Serial.available() > 0){
+            while(Serial.available()){
+                // read the incoming byte:
+                //Serial.println("reading"
+                char inChar = char(Serial.read());
+                //Serial.print(inChar);
+                missionbuff[counter] = inChar;
+                counter++;  
+                if (inChar == '\0'){
+                    Serial.println(missionbuff);
+                    handleInput(missionbuff);
+                    counter = 0;
+                }
+            }
+            break;
+        }
+    }
+    exit(1);
     if(progress == 'A'){
         SD_main_write();
         //release sequence_1

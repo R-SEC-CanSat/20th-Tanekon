@@ -19,8 +19,7 @@ void setup() {
 
 void loop() {
   if (SerialBT.available()) {
-    
-        Serial.print(SerialBT.read());
+    Serial.print(SerialBT.read());
    
   delay(20);
   }
