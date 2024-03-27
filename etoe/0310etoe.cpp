@@ -3,6 +3,7 @@
 //キャリブレーションの正確性
 //etoe前に確認すること
 //１．溶断のピン番号と時間
+//sdcardの中身消す、書き込み練習
 //microsd
 #include <Arduino.h>
 #include <Wire.h>
@@ -40,7 +41,7 @@ double goalGPSdata4[2] = {35.70279, 139.56110};
 //ゴールの緯度経度(作業場近くのセブン)
 double goalGPSdata5[2] = {35.717167, 139.823181};
 //種子島
-double goalGPSdata[2] = {30.5303248, 130.9575781};
+double goalGPSdata[2] = {30.3303248, 130.9575781};
 //I2C communication parameters
 #define DEFAULT_DEVICE_ADDRESS 0x42
 //I2C read data structures
@@ -66,14 +67,14 @@ double camera_area_data_yellow = 0.0;
 #define gpsSp 200
 #define cameraTp 0.5
 #define cameraSp 100
-typedef struct{
-    int in1;
-    int in2;
-    int pwm;
-} MotorPin;
-//moter setting
-MotorPin motorPin[2] = {{27, 13, 12}, {2, 4, 15}};
-const int fusePin = 14; 
+const int STBY = 17; // モータードライバの制御の準備
+const int AIN1 = 27; // 1つ目のDCモーターの制御
+const int AIN2 = 13; // 1つ目のDCモーターの制御
+const int BIN1 = 2; // 2つ目のDCモーターの制御
+const int BIN2 = 4; // 2つ目のDCモーターの制御
+const int PWMA = 12; // 1つ目のDCモーターの回転速度
+const int PWMB = 15; // 2つ目のDCモーターの回転速度
+const int fusePin = 14;  // 溶断回路の制御,今はダミー
 const int s1 = 33;
 const int s2 = 32;
 const int s3 = 25; 
@@ -116,37 +117,7 @@ String getString(){
   return result;
 }
 
-void commandCheck() {
-  if(Serial.available() > 0){
-    String command = getString();
-    if(command == "command"){
-        Serial.println("=====================");
-        Serial.println("command mode");
-        Serial.println("=====================");
-        Serial.println();
-        Serial.println("command list…");
-        Serial.println("0   : end");
-        Serial.println("1   : input check");
-        Serial.println("2   : output check");
-        Serial.println("3   : mission check");
-        Serial.println("4   : SD card edit");
-         Serial.println();
-      while(true){
-        if(Serial.available() > 0){
-          String command = getString();
-          switch (command.toInt()){
-            case 0:
-                break; 
-            case 4:
-                
-          }
-        }
-      }
-    }
 
-     
-  }
-}
 
 void SD_init(){
   //  SPIClass SPI2(HSPI);
@@ -212,6 +183,21 @@ void SD_init(){
         fileNum++;
         
     }
+    mainFile = SD.open(mainName, FILE_WRITE); //append to file
+    subFile = SD.open(subName, FILE_WRITE); 
+    if (mainFile){
+        Serial.print("Writing to test.txt...");
+        mainFile.print(progress);
+        mainFile.print(',');
+        mainFile.print(moduleExist);
+        mainFile.print(',');
+        mainFile.println(azidata[1]);
+        mainFile.close();
+        Serial.println("done.");
+    }
+    else{
+        Serial.println("error opening test.txt to write");
+    }
     if(progress == 'A'||progress == 'E'){
         
         mainFile = SD.open(mainName, FILE_WRITE); //append to file
@@ -241,7 +227,7 @@ void SD_init(){
     }else{
         for(int i = 0; i < 16; i++){
             mainName[i] = premainName[i];
-            subName[i] = presubName[i];
+            
         }
     }
 }
@@ -321,13 +307,16 @@ void setup() {
     while ((uint8_t) c != 0xFF);
     delay(100);
     
-    
-    // ピンを出力モードに設定
-    for(int i = 0; i < 2; i++){
-        pinMode(motorPin[i].in1, OUTPUT);
-        pinMode(motorPin[i].in2, OUTPUT);
-        pinMode(motorPin[i].pwm, OUTPUT);
-    }
+    //moter setting
+    pinMode(AIN1, OUTPUT);
+    pinMode(AIN2, OUTPUT);
+    pinMode(BIN1, OUTPUT);
+    pinMode(BIN2, OUTPUT);
+    digitalWrite(STBY, HIGH);
+    // スタンバイ
+    pinMode(STBY, OUTPUT);
+    pinMode(PWMA, OUTPUT);
+    pinMode(PWMB, OUTPUT);
     pinMode(fusePin, OUTPUT);
     digitalWrite(fusePin, LOW); // 溶断回路を通電
     // servo setting
@@ -366,7 +355,7 @@ void printEvent(sensors_event_t* event) {
     Serial.print(" |\tz= ");
     Serial.println(z);
 }
-void SD_main_write(){
+void SD_main_write(String data){
     mainFile = SD.open(mainName, FILE_APPEND); //append to file
     if (mainFile){
         Serial.print("Writing to test.txt...");
@@ -374,7 +363,9 @@ void SD_main_write(){
         mainFile.print(',');
         mainFile.print(moduleExist);
         mainFile.print(',');
-        mainFile.println(azidata[1]);
+        mainFile.print(azidata[1]);
+        mainFile.print(',');
+        mainFile.println(data);
         mainFile.close();
         Serial.println("done.");
     }
@@ -425,37 +416,123 @@ void Euler(){
     eulerdata[2] = yaw + 17.8;
 
 }
-//omergaha半時計(右が強くなる)
-void MotorOut(MotorPin pin[], int speed, int omega){
-    //モーターの速度調整
-    int speed_R,speed_L;
-    if(speed + omega > 255 || speed - omega < 255){
-        speed = speed * (255 - omega) / abs(speed);
+void stackcheck_gyaku(){
+    
+    while(1){
+        if(eulerdata[2] > 0){//要調整
+            SD_main_write("stack");
+            digitalWrite(AIN1, LOW);
+            digitalWrite(AIN2, HIGH);
+            digitalWrite(BIN1, LOW);
+            digitalWrite(BIN2, HIGH);
+            analogWrite(PWMA, 255);
+            analogWrite(PWMB, 255);
+            
+        delay(500);
+            digitalWrite(AIN1, LOW);
+            digitalWrite(AIN2, LOW);
+            digitalWrite(BIN1, LOW);
+            digitalWrite(BIN2, LOW);
+            analogWrite(PWMA, 0);
+            analogWrite(PWMB, 0);
+            
+        }else{break;}
     }
-    speed_R = speed + omega;
-    speed_L = speed - omega;
+    
+}
+//omergaha半時計(右が強くなる)
+void MoterControl( int left,int right) {
+    //初めにスタック解除
+    Euler();
 
-    int MotorSpeed[2] = {speed_L, speed_R};
+    while(eulerdata[0] > 88){
+        digitalWrite(AIN1, LOW);
+        digitalWrite(AIN2, HIGH);
+        digitalWrite(BIN1, LOW);
+        digitalWrite(BIN2, HIGH);
+        analogWrite(PWMA, 255);
+        analogWrite(PWMB, 255);
+        delay(750);
+        digitalWrite(AIN1, LOW);
+        digitalWrite(AIN2, LOW);
+        digitalWrite(BIN1, LOW);
+        digitalWrite(BIN2, LOW);
+        analogWrite(PWMA, 0);
+        analogWrite(PWMB, 0);
+        Euler();
+    }
 
-    //出力
-    for(int i = 0; i < 2; i++){
-        if(MotorSpeed[i] > 0){
-            digitalWrite(pin[i].in1, HIGH);
-            digitalWrite(pin[i].in2, LOW);
-            analogWrite(pin[i].pwm, MotorSpeed[i]);
-        }else if(MotorSpeed[i] < 0){
-            digitalWrite(pin[i].in1, LOW);
-            digitalWrite(pin[i].in2, HIGH);
-            analogWrite(pin[i].pwm, -MotorSpeed[i]);
-        }else{
-            digitalWrite(pin[i].in1, LOW);
-            digitalWrite(pin[i].in2, LOW);
-            analogWrite(pin[i].pwm, 0);
-        }
+    int absleft = abs(left);
+    int absright = abs(right);
+
+    if(left >= 0 && right >= 0){
+        digitalWrite(AIN1, HIGH);
+        digitalWrite(AIN2, LOW);
+        digitalWrite(BIN1, HIGH);
+        digitalWrite(BIN2, LOW);
+        analogWrite(PWMA, absleft);
+        analogWrite(PWMB, absright);
+    }
+    else if(left >= 0 && right < 0){
+        digitalWrite(AIN1, HIGH);
+    //初めにスタック解除
+    Euler();
+
+    while(eulerdata[0] > 88){
+        digitalWrite(AIN1, LOW);
+        digitalWrite(AIN2, HIGH);
+        digitalWrite(BIN1, LOW);
+        digitalWrite(BIN2, HIGH);
+        analogWrite(PWMA, 255);
+        analogWrite(PWMB, 255);
+        delay(750);
+        digitalWrite(AIN1, LOW);
+        digitalWrite(AIN2, LOW);
+        digitalWrite(BIN1, LOW);
+        digitalWrite(BIN2, LOW);
+        analogWrite(PWMA, 0);
+        analogWrite(PWMB, 0);
+        Euler();
+    }
+
+    int absleft = abs(left);
+    int absright = abs(right);
+
+    if(left >= 0 && right >= 0){
+        digitalWrite(AIN1, HIGH);
+        digitalWrite(AIN2, LOW);
+        digitalWrite(BIN1, HIGH);
+        digitalWrite(BIN2, LOW);
+        analogWrite(PWMA, absleft);
+        analogWrite(PWMB, absright);
+    }
+    else if(left >= 0 && right < 0){
+        digitalWrite(AIN1, HIGH);
+        digitalWrite(AIN2, LOW);
+        digitalWrite(BIN1, LOW);
+        digitalWrite(BIN2, HIGH);
+        analogWrite(PWMA, absleft);
+        analogWrite(PWMB, absright);
+    }
+    else if(left < 0 && right >= 0){
+        digitalWrite(AIN1, LOW);
+        digitalWrite(AIN2, HIGH);
+        digitalWrite(BIN1, HIGH);
+        digitalWrite(BIN2, LOW);
+        analogWrite(PWMA, absleft);
+        analogWrite(PWMB, absright);
+    }
+    else{
+        digitalWrite(AIN1, LOW);
+        digitalWrite(AIN2, HIGH);
+        digitalWrite(BIN1, LOW);
+        digitalWrite(BIN2, HIGH);
+        analogWrite(PWMA, absleft);
+        analogWrite(PWMB, absright);
     }
 }
 void stop(){
-    MotorOut(motorPin, 0, 0);
+    MotorControl( 0, 0);
 }
 
 double distanceBetween(double lat1, double long1, double lat2, double long2){
@@ -621,11 +698,13 @@ void GPS_data_run(double goallat,double goallon){
                         }
         
                         String mlat = String(lat);
+                        SD_main_write(mlat);
                         Serial.println(mlat);
                         Serial.println(mlat.substring(2,4).toDouble());
                         Serial.println(mlat.substring(4,9).toDouble());
                         Serial.println(mlat.substring(6,8).toDouble());
                         double latitude = mlat.substring(0,2).toDouble() + mlat.substring(2,9).toDouble() / 60.0 / 100000.0;
+                        SD_main_write(mlat);
                         String mlon = String(lon);
                         double longitude = mlon.substring(0,3).toDouble() + mlon.substring(3,10).toDouble() / 60.0 / 100000.0;
                         double goaldirection  = 57.2957795131 * atan2(goalGPSdata[0] - latitude, goalGPSdata[1] - longitude);
@@ -710,41 +789,23 @@ void GPS_data_run(double goallat,double goallon){
 
 
 
-void parakaihi(){
-    ;
-
-}
-
 void kaishuu(){
-    MotorOut(motorPin,0,0);
+    MotorControl(motorPin,150,0);
+    delay(2000);
     servo1.write(88);
     servo2.write(0);
     delay(1000);
     servo3.write(90);
     delay(1000);
-    cn1Value = analogRead(35);
-    //光量でモジュールの存在を確認、実験地は未定
-    if(cn1Value > 500){
-        moduleExist = false;
+    //徐々にバック
+    for (int i = 0; i < 20; i++){
+        MotorControl(motorPin,  - 10 * i,  - 10 * i);
+        delay(100);
     }
-    else{
-        moduleExist = true;
-    }
-    //ここにbluetoothでのデータ送信を入れる
-    if (SerialBT.available()) {
-        Serial.write(SerialBT.read());
-    }
-    subFile = SD.open(subName, FILE_WRITE); 
-    if (subFile){
-        Serial.print("Writing to test.txt...");
-        subFile.println("testing 1, 2, 3.");
-        subFile.close();
-        Serial.println("done.");
-    }
-    else{
-        Serial.println("error opening test.txt to write");
-    }
-    //SerialBT.write(bme_data);
+    //
+
+
+
 }
 void setting(){
     servo1.write(0);
@@ -759,6 +820,7 @@ void setting(){
     delay(1000);
     servo3.write(90);
     delay(1000);
+    moduleExist = false;
 }
 
 void GetAzimuthDistance(double goallat, double goallon){
@@ -808,7 +870,7 @@ void P_GPS_Moter(double goallat2, double goallon2){
         if(ave_dit < 15){
             //徐々に停止
             for (int i = 0; i < 10; i++){
-                MotorOut(motorPin, 100 - 10 * i, 100 - 10 * i);
+                MotorControl(motorPin, 100 - 10 * i, 100 - 10 * i);
                 delay(100);
             }
             break;
@@ -818,7 +880,7 @@ void P_GPS_Moter(double goallat2, double goallon2){
             Serial.print(gpsSp);
             Serial.print(",");
             Serial.println(gpsTp * intave_turn);
-            MotorOut(motorPin, gpsSp, gpsTp * intave_turn);
+            MotorControl(motorPin, gpsSp, gpsTp * intave_turn);
             delay(10);
         } 
         
@@ -984,6 +1046,7 @@ void P_camera_Moter(int colornumber){
                         //二個目のメッセージであるかを判断
                         if (counter == 50){
                             Serial.println(buff);
+                            SD_main_write(String(buff));
                             //文字列を整数リストに変換
                             split(String(buff));
                             Serial.print("camera_data: ");
@@ -991,27 +1054,33 @@ void P_camera_Moter(int colornumber){
                                 Serial.print(camera_data[i]);
                                 Serial.print(",");
                             }
-                            if(camera_area_data_red>0.20 && camera_area_data_red< 1){
+                            if(camera_area_data_red>0.06 && camera_area_data_red< 1){
                                 break;
                             }
                             if(camera_data[colornumber * 3] == 0){
-                                MotorOut(motorPin, 0, 100);
-                                SD_main_write();
+                                MotorControl(motorPin, 0, 100);
+                                SD_main_write("no target,turn");
                                 delay(100);
+                            }else{
+                            MotorControl(motorPin, cameraSp, int(cameraTp * (- camera_data[colornumber * 3] + 320)));
+                            if((- camera_data[colornumber * 3] + 320)>0){
+                                SD_main_write("target,left move");
+                            }else{
+                                SD_main_write("target,right move");
                             }
-                            MotorOut(motorPin, cameraSp, int(cameraTp * (- camera_data[colornumber * 3] + 320)));
                             Serial.print("\tMoterControl: ");delay(10);
                             Serial.print(cameraSp);delay(10);
                             Serial.print(",");delay(10);
                             Serial.println(int(cameraTp * (- camera_data[0] + 320)));delay(10);
-
+                            }
                             delay(1000);
                             counter = 0;
                             break;
                         }
                     }
                 }
-                if(camera_area_data_red>0.20 && camera_area_data_red< 1){
+                if(camera_area_data_red>0.06 && camera_area_data_red< 1){
+                    SD_main_write("target,stop");
                     break;
                 }
             }
@@ -1024,6 +1093,7 @@ void housyutu(){
     while (1){
         Euler();
         Serial.println(eulerdata[1]);
+        SD_main_write("zyunnbi");
         if (eulerdata[1] <= -45 || eulerdata[1] >= 45) {
             delay(1000);
             break;
@@ -1049,6 +1119,7 @@ void housyutu(){
     while (1){
         Euler();
         Serial.println(eulerdata[1]);
+        SD_main_write("zyunnbi_up");
         if (eulerdata[1] <= -45 || eulerdata[1] >= 45) {
             delay(500);
             break;
@@ -1061,6 +1132,7 @@ void housyutu(){
     while(1){
         Euler();
         Serial.println(eulerdata[1]);
+        SD_main_write("release");
         if (eulerdata[1] <= 45 && eulerdata[1] >= -45) {
 
             break;
@@ -1078,9 +1150,12 @@ void tyakuti(){
     while(1){
         Euler();
         if(eulerdata[5] < 5){
+            SD_main_write("tyakuti with accerelation");
+            delay(15000);
             break;
         }
-        else if(currentTime - startTime > 6500){
+        else if(currentTime - startTime > 15000){
+            SD_main_write("tyakuti without accerelation");
             break;
         }
         else{
@@ -1090,8 +1165,9 @@ void tyakuti(){
         
     }
     Serial.println("youdan");
+    SD_main_write("youdan");
     digitalWrite(fusePin, HIGH); // 溶断回路を通電
-    delay(500);
+    delay(1500);
     digitalWrite(fusePin, LOW); // 
     delay(1000);
 }
@@ -1099,17 +1175,20 @@ void missionready(){
     double inilat[5];
     double inilon[5];
     //highly
+    SD_main_write("moter ok");
     for(int i = 0; i < 25; i++){
-        MotorOut(motorPin, 10 * i, 0);
+        MotorControl(motorPin, 10 * i, 0);
         delay(500);
     }
     //slowly
     for(int i = 0; i < 25; i++){
-        MotorOut(motorPin, 250 - 10 * i, 0);
+        MotorControl(motorPin, 250 - 10 * i, 0);
         delay(500);
     }
     stop();
+    SD_main_write("GPS ok");
     GPS_data_run(goalGPSdata[0],goalGPSdata[1]);
+
     for(int i = 0; i < 5; i++){
         GPS_data_run(goalGPSdata[0],goalGPSdata[1]);
         inilat[i] = currentGPSdata[0];
@@ -1123,69 +1202,104 @@ void missionready(){
     Serial.println(setGPSdata[1],7);
     Serial.println("Setting!!!");
     moduleExist = 0;
-    SD_main_write();
+    SD_main_write("setting");
     setting();
     //back and turn left
     for(int i = 0; i < 25; i++){
-        MotorOut(motorPin, -10 * i, 0);
+        MotorControl(motorPin, -10 * i, 0);
         delay(500);
     }
-    MotorOut(motorPin, 0, 100);
+    MotorControl(motorPin, 0, 100);
     delay(1000);
     for(int i = 0; i < 20; i++){
-        MotorOut(motorPin, 10 * i, 0);
+        MotorControl(motorPin, 10 * i, 0);
         delay(500);
     }
     for(int i = 0; i < 20; i++){
-        MotorOut(motorPin, 200 - 10 * i, 0);
+        MotorControl(motorPin, 200 - 10 * i, 0);
         delay(500);
     }
 }
-void stackcheck_gyaku(){
-    Euler();
-    if(eulerdata[5] < 5){
-        return;
-    }
-    else{
-        delay(500);
-        stackcheck_gyaku();
-    }
-}
-//SD保存の関数、進捗、モジュール有無、距離のデータが変わったらデータを書き込む
 
 void loop() {
-    commandCheck();
+    
+    //モーター確認徐々に左折と右折
+    for(int i = 0; i < 20; i++){
+        MotorControl(motorPin, 10 * i, 10 * i);
+        delay(100);
+    }
+    for(int i = 0; i < 20; i++){
+        MotorControl(motorPin, 10 * i, -10 * i);
+        delay(100);
+    }
+    //サーボ確認しまってるとき
+    servo1.write(0);
+    delay(1000);
+    servo1.write(88);
+    delay(1000);
+    servo2.write(90);
+    delay(1000);
+    //開いてるとき
+    servo2.write(0);
+    delay(1000);
+    servo3.write(0);
+    delay(1000);
+    servo3.write(90);
+
+    //5回オイラー角を取得して、その平均値を取る
+    for (size_t i = 0; i < 5; i++)
+    {
+        Euler();
+        delay(100);
+    }
+    //commandCheck();
+    
     if(progress == 'A'){
-        SD_main_write();
+        
         //release sequence_1
         Serial.println("release progress start");
+        SD_main_write("release");
         delay(100);
         housyutu();
+        SD_main_write("housyutu end");
         tyakuti();
+        SD_main_write("tyakuti end");
         progress++;
     }
     if(progress == 'B'){
-        SD_main_write();
-        missionready();
         
+        missionready();
+        SD_main_write("missionready end");
         //GPS sequence_2
+        
         Serial.println("gps progress start");
+        SD_main_write("gps start");
         P_GPS_Moter(goalGPSdata[0],goalGPSdata[1]);
+        
         //ledmaker(2);
         //アーム展開
         Serial.println("camera progress start");
+        SD_main_write("camera start");
         P_camera_Moter(0);
+        
         progress++;
     }
     if(progress == 'C'){
-        //P_GPS_Moter(setGPSdata[0],setGPSdata[1]);
+        P_GPS_Moter(setGPSdata[0],setGPSdata[1]);
+        SD_main_write("setGPSdata end");
         P_camera_Moter(1);
+        
         kaishuu();
+        
         progress++;
     }
     if(progress == 'D'){
-        //P_GPS_Moter(goalGPSdata[0],goalGPSdata[1]);
-        //P_camera_Moter(0);
+        SD_main_write("gps again start");
+        P_GPS_Moter(goalGPSdata[0],goalGPSdata[1]);
+        SD_main_write("gps again end");
+        SD_main_write("camera again start");
+        P_camera_Moter(0);
+        SD_main_write("camera again end");
         progress++;
     }
     if(progress == 'E'){

@@ -795,29 +795,7 @@ void kaishuu(){
     delay(1000);
     servo3.write(90);
     delay(1000);
-    cn1Value = analogRead(35);
-    //光量でモジュールの存在を確認、実験地は未定
-    if(cn1Value > 500){
-        moduleExist = false;
-    }
-    else{
-        moduleExist = true;
-    }
-    //ここにbluetoothでのデータ送信を入れる
-    if (SerialBT.available()) {
-        Serial.write(SerialBT.read());
-    }
-    subFile = SD.open(subName, FILE_WRITE); 
-    if (subFile){
-        Serial.print("Writing to test.txt...");
-        subFile.println("testing 1, 2, 3.");
-        subFile.close();
-        Serial.println("done.");
-    }
-    else{
-        Serial.println("error opening test.txt to write");
-    }
-    //SerialBT.write(bme_data);
+    Moter
 }
 void setting(){
     servo1.write(0);
