@@ -17,6 +17,44 @@ pinMode(PWMA, OUTPUT);
 pinMode(PWMB, OUTPUT);
 // put your setup code here, to run once:
 }
+//omergaha半時計(右が強くなる)
+void MoterControl( int left,int right) {
+    int absleft = abs(left);
+    int absright = abs(right);
+
+    if(left >= 0 && right >= 0){
+        digitalWrite(AIN1, HIGH);
+        digitalWrite(AIN2, LOW);
+        digitalWrite(BIN1, HIGH);
+        digitalWrite(BIN2, LOW);
+        analogWrite(PWMA, absleft);
+        analogWrite(PWMB, absright);
+    }
+    else if(left >= 0 && right < 0){
+        digitalWrite(AIN1, HIGH);
+        digitalWrite(AIN2, LOW);
+        digitalWrite(BIN1, LOW);
+        digitalWrite(BIN2, HIGH);
+        analogWrite(PWMA, absleft);
+        analogWrite(PWMB, absright);
+    }
+    else if(left < 0 && right >= 0){
+        digitalWrite(AIN1, LOW);
+        digitalWrite(AIN2, HIGH);
+        digitalWrite(BIN1, HIGH);
+        digitalWrite(BIN2, LOW);
+        analogWrite(PWMA, absleft);
+        analogWrite(PWMB, absright);
+    }
+    else{
+        digitalWrite(AIN1, LOW);
+        digitalWrite(AIN2, HIGH);
+        digitalWrite(BIN1, LOW);
+        digitalWrite(BIN2, HIGH);
+        analogWrite(PWMA, absleft);
+        analogWrite(PWMB, absright);
+    }
+}
 void loop() {
 //アーム展開
 
